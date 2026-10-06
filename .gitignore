@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+src-tauri/target/
+src-tauri/gen/
+
+# Models (large; fetched with `npm run model:fetch`, never committed)
+src-tauri/resources/models/*
+!src-tauri/resources/models/.gitkeep
+*.onnx
+
+# ONNX Runtime library for Intel macOS (downloaded locally, see README)
+src-tauri/vendor/
+
+# Secrets: updater signing keys, certificates, env files
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+.env
+.env.*
+!.env.example
+
+# Test output and reports
+test-results/
+playwright-report/
+coverage/
+
+# Generated release notes (CHANGELOG.md is the committed record)
+RELEASE_NOTES.md
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp

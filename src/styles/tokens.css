@@ -1,0 +1,67 @@
+/* Design tokens: see docs/DESIGN_TOKENS.md. Light is the reference; Dark is derived. */
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg-app: #fbf6f0;
+  --bg-surface: #fffdfa;
+  --bg-muted: #f3ebe1;
+  --border: #e8dccb;
+  --primary: #9a4a1f;
+  --primary-hover: #843e19;
+  --primary-contrast: #ffffff;
+  --text: #3b2415;
+  --text-muted: #7a6757; /* darkened from #8A7767 to pass AA on --bg-app */
+  --success: #2e9e48; /* dots and graphics (3:1) */
+  --success-fg: #1f7a35; /* success text (4.5:1) */
+  --danger: #c0392b;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --shadow-card: 0 1px 2px rgb(90 50 20 / 0.05), 0 8px 24px rgb(90 50 20 / 0.07);
+  --checker-a: #ffffff;
+  --checker-b: #e6e1db;
+  --focus-ring: #9a4a1f;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-app: #1e1611;
+  --bg-surface: #2a1f18;
+  --bg-muted: #382a20;
+  --border: #4a3a2d;
+  --primary: #dd7d44;
+  --primary-hover: #e89258;
+  --primary-contrast: #1e1611;
+  --text: #f3e7db;
+  --text-muted: #b39d8a;
+  --success: #4cc26a;
+  --success-fg: #4cc26a;
+  --danger: #e5675a;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.35);
+  --checker-a: #3a3029;
+  --checker-b: #2f261f;
+  --focus-ring: #e08a52;
+}
+
+.checkerboard {
+  background-color: var(--checker-a);
+  background-image:
+    linear-gradient(
+      45deg,
+      var(--checker-b) 25%,
+      transparent 25%,
+      transparent 75%,
+      var(--checker-b) 75%
+    ),
+    linear-gradient(
+      45deg,
+      var(--checker-b) 25%,
+      transparent 25%,
+      transparent 75%,
+      var(--checker-b) 75%
+    );
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    8px 8px;
+}

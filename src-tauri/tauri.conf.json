@@ -1,0 +1,94 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Photom",
+  "version": "0.1.0",
+  "identifier": "in.nyxtry.photom",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1430",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Photom",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1100,
+        "minHeight": 680,
+        "decorations": false,
+        "center": true,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPCACHE/**", "$APPDATA/recent/**", "$APPDATA/history/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": ["resources/models/*", "resources/THIRD_PARTY_LICENSES.md"],
+    "createUpdaterArtifacts": true,
+    "publisher": "Photom",
+    "copyright": "Copyright \u00a9 Photom contributors",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "Remove image backgrounds offline",
+    "longDescription": "Photom removes image backgrounds entirely on your computer, lets you refine the result, and exports transparent PNGs. No account, no uploads, no telemetry.",
+    "fileAssociations": [
+      {
+        "ext": ["photom"],
+        "name": "Photom Project",
+        "description": "Photom project",
+        "mimeType": "application/x-photom",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installMode": "both",
+        "displayLanguageSelector": false,
+        "languages": ["English"]
+      },
+      "wix": {
+        "language": "en-US"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "hardenedRuntime": true,
+      "entitlements": null
+    },
+    "linux": {
+      "deb": {
+        "section": "graphics"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENFMjQ0NzE2QjdDNjM2OEEKUldTS05zYTNGa2Nremt5b0JVNEVkUHhDYUVwL1VhTU1jTm9hWWIyMUhpdEFaZTJGOFFOVlZlK0YK",
+      "endpoints": ["https://github.com/OWNER/photom/releases/latest/download/latest.json"],
+      "requireSignedVersion": true
+    }
+  }
+}

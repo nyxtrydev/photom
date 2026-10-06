@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "resources": {
+      "resources/models/isnet-general-use-fp16.onnx": "resources/models/isnet-general-use-fp16.onnx",
+      "resources/THIRD_PARTY_LICENSES.md": "resources/THIRD_PARTY_LICENSES.md"
+    }
+  }
+}

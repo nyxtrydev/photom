@@ -1,0 +1,72 @@
+[package]
+name = "photom"
+version = "0.1.0"
+description = "Offline background remover"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "photom_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-window-state = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-store = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-os = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "bmp", "tiff"] }
+fast_image_resize = { version = "5", features = ["image"] }
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "ndarray", "tracing"] }
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }
+rayon = "1"
+zip = { version = "4.2.0", default-features = false, features = ["deflate"] }
+tauri-plugin-clipboard-manager = "2.1.0-beta.7"
+tauri-plugin-updater = "2.0.0-rc.4"
+
+# ONNX Runtime linkage per platform. Intel macOS has no prebuilt binaries: load a dylib at
+# runtime via ORT_DYLIB_PATH (dev only; see docs/DECISIONS.md).
+[target.'cfg(windows)'.dependencies]
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["download-binaries", "tls-native", "directml"] }
+
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["download-binaries", "tls-native", "coreml"] }
+
+[target.'cfg(all(target_os = "macos", target_arch = "x86_64"))'.dependencies]
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["download-binaries", "tls-native"] }
+
+[dev-dependencies]
+tempfile = "3"
+tauri = { version = "2", features = ["protocol-asset", "test"] }
+
+# Image processing is unusably slow unoptimised; keep dev builds fast enough to try the app.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+# Smaller, faster release binaries. Panic stays "unwind": the job queue relies on catching panics
+# so one bad image cannot take down a whole batch.
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = true
+opt-level = 3

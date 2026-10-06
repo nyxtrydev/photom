@@ -1,0 +1,10 @@
+node_modules
+dist
+src-tauri/target
+src-tauri/gen
+package-lock.json
+docs/design
+src-tauri/tests/fixtures
+test-results
+playwright-report
+src-tauri/vendor

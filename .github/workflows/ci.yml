@@ -1,0 +1,107 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  frontend:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:scripts
+
+  # End-to-end tests (including the axe accessibility audits) run on Windows, the primary platform.
+  e2e:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install chromium
+      - run: npm run e2e
+
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: 'clippy, rustfmt' }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: src-tauri }
+      - name: Linux system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf xvfb
+      - run: npm ci
+      - run: npm run build
+      - run: cargo fmt --check
+        working-directory: src-tauri
+      - run: cargo clippy --all-targets -- -D warnings
+        working-directory: src-tauri
+      - run: cargo test
+        working-directory: src-tauri
+
+  # Runs the real pipeline (import -> cut-out -> export) inside the built app on every platform.
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: src-tauri }
+      - name: Linux system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf xvfb
+      - uses: actions/cache@v4
+        with:
+          path: src-tauri/resources/models
+          key: fast-model-${{ hashFiles('scripts/fetch-model.mjs', 'scripts/make-fast-model.py') }}
+      - run: pip install onnx numpy
+      - run: npm ci
+      - run: npm run model:fetch
+      - run: npm run build
+      - run: npx tauri build --no-bundle
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ''
+      - name: Smoke test (Linux, virtual display)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a src-tauri/target/release/photom --smoke-test --smoke-out smoke.txt
+        env:
+          PHOTOM_MODELS_DIR: ${{ github.workspace }}/src-tauri/resources/models
+      - name: Smoke test
+        if: runner.os != 'Linux'
+        shell: bash
+        run: src-tauri/target/release/photom --smoke-test --smoke-out smoke.txt
+        env:
+          PHOTOM_MODELS_DIR: ${{ github.workspace }}/src-tauri/resources/models
+      - run: cat smoke.txt
+        shell: bash
