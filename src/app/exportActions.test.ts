@@ -100,8 +100,10 @@ describe('buildItems', () => {
       'background',
       'output',
       'refine',
+      'shadow',
       'split',
       'strokes',
+      'upscale',
     ]);
   });
   it('accepts an explicit id list and nothing when no image is active', () => {
@@ -307,6 +309,8 @@ describe('starting jobs', () => {
             compression: 6,
             filenameTemplate: 'x',
             folder: '/o',
+            includeShadow: true,
+            shadowLayer: false,
           },
         },
       },

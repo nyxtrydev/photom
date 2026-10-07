@@ -122,6 +122,8 @@ function ExportForm({
 
   const scopeImages = opts.scope === 'all' ? images : active ? [active] : [];
   const missing = scopeImages.filter((i) => !masks[i.id]).length;
+  const editStates = useEditorStore((s) => s.states);
+  const hasShadow = scopeImages.some((i) => editStates[i.id]?.shadow?.enabled === true);
 
   const syncSettings = async () => apply(await getSettings());
 
@@ -307,6 +309,36 @@ function ExportForm({
           </div>
         </div>
       </Row>
+
+      {hasShadow && (
+        <Row label={t.shadow}>
+          <div className="flex flex-col gap-2">
+            {(
+              [
+                ['includeShadow', t.includeShadow, undefined],
+                ['shadowLayer', t.shadowLayer, t.shadowLayerHint],
+              ] as const
+            ).map(([key, label, hint]) => (
+              <label key={key} className="flex cursor-pointer items-start gap-3 text-sm">
+                <Checkbox.Root
+                  checked={opts[key]}
+                  onCheckedChange={(v) => set({ [key]: v === true })}
+                  aria-label={label}
+                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border-2 border-primary bg-surface data-[state=checked]:bg-primary"
+                >
+                  <Checkbox.Indicator>
+                    <Check size={14} className="text-primary-contrast" aria-hidden />
+                  </Checkbox.Indicator>
+                </Checkbox.Root>
+                <span>
+                  {label}
+                  {hint && <span className="block text-xs text-fg-muted">{hint}</span>}
+                </span>
+              </label>
+            ))}
+          </div>
+        </Row>
+      )}
 
       <Row label={t.compression}>
         <div className="flex items-center gap-3">

@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use rayon::prelude::*;
 
 use super::image_io;
+use super::upscale::KeptUpscale;
 use crate::models::dto::{ImageMeta, ImportResult, RejectedFile};
 use crate::models::error::{AppError, AppResult};
 
@@ -19,6 +20,8 @@ pub struct ImageRecord {
 #[derive(Clone, Default, Debug)]
 pub struct ImageRegistry {
     inner: Arc<Mutex<HashMap<String, ImageRecord>>>,
+    /// Kept upscaled versions (derived assets), by image id.
+    upscaled: Arc<Mutex<HashMap<String, KeptUpscale>>>,
 }
 
 impl ImageRegistry {
@@ -31,13 +34,36 @@ impl ImageRegistry {
     /// Swap in the contents of another registry (a project that was read successfully).
     pub fn replace_with(&self, other: &ImageRegistry) -> AppResult<()> {
         let new = other.lock()?.clone();
+        let new_up = other.lock_upscaled()?.clone();
         *self.lock()? = new;
+        *self.lock_upscaled()? = new_up;
+        Ok(())
+    }
+
+    fn lock_upscaled(&self) -> AppResult<std::sync::MutexGuard<'_, HashMap<String, KeptUpscale>>> {
+        self.upscaled
+            .lock()
+            .map_err(|_| AppError::Internal("registry lock poisoned".into()))
+    }
+
+    /// The kept upscaled version of an image, if there is one.
+    pub fn upscaled(&self, id: &str) -> AppResult<Option<KeptUpscale>> {
+        Ok(self.lock_upscaled()?.get(id).cloned())
+    }
+
+    pub fn set_upscaled(&self, id: &str, kept: Option<KeptUpscale>) -> AppResult<()> {
+        let mut map = self.lock_upscaled()?;
+        match kept {
+            Some(k) => map.insert(id.to_string(), k),
+            None => map.remove(id),
+        };
         Ok(())
     }
 
     /// Forget every image (new/open project).
     pub fn clear(&self) -> AppResult<()> {
         self.lock()?.clear();
+        self.lock_upscaled()?.clear();
         Ok(())
     }
 

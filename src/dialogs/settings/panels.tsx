@@ -7,6 +7,7 @@ import { getModelStatus } from '@/api/inference';
 import { getAppInfo, importModel, openLogsFolder, readLicences } from '@/api/settings';
 import { updateSettings } from '@/app/settingsActions';
 import { NumberField } from '@/components/editor/NumberField';
+import { ModelInstallBanner } from '@/components/ModelInstallBanner';
 import { UpdatePanel } from './UpdatePanel';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
 import { strings } from '@/i18n/strings';
@@ -100,6 +101,17 @@ export function GeneralPanel() {
           />
         </div>
       </Field>
+      <Field label={g.upscaleMax} hint={g.upscaleMaxHint}>
+        <div className="w-24">
+          <NumberField
+            label={g.upscaleMax}
+            value={s.upscaleMaxMp}
+            min={1}
+            max={1000}
+            onCommit={(v) => void updateSettings({ upscaleMaxMp: v })}
+          />
+        </div>
+      </Field>
       <Field label={g.embed} hint={g.embedHint}>
         <label className="flex cursor-pointer items-center gap-3 text-sm">
           <Checkbox.Root
@@ -169,6 +181,11 @@ export function ModelPanel() {
           <Radio value="fast" label={m.fast} hint={m.fastHint} />
           <Radio value="quality" label={m.quality} hint={m.qualityHint} />
         </RadioGroup.Root>
+        <ModelInstallBanner
+          requirement={{ models: ['bgremoval-quality'] }}
+          label={m.qualityName}
+          className="mt-2"
+        />
       </Field>
       <Field label={m.processing} hint={m.gpuHint}>
         <RadioGroup.Root

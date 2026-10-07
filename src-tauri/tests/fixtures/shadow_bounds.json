@@ -1,0 +1,865 @@
+[
+  {
+    "name": "no shadow",
+    "src": [
+      1000,
+      800
+    ],
+    "subject": {
+      "x": 800,
+      "y": 600,
+      "w": 200,
+      "h": 200
+    },
+    "shadow": null,
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 1000,
+      "h": 800
+    }
+  },
+  {
+    "name": "shadow disabled",
+    "src": [
+      1000,
+      800
+    ],
+    "subject": {
+      "x": 800,
+      "y": 600,
+      "w": 200,
+      "h": 200
+    },
+    "shadow": {
+      "enabled": false,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "drop",
+          "angle": 135,
+          "distance": 100,
+          "blur": 40
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 1000,
+      "h": 800
+    }
+  },
+  {
+    "name": "auto expand off",
+    "src": [
+      1000,
+      800
+    ],
+    "subject": {
+      "x": 800,
+      "y": 600,
+      "w": 200,
+      "h": 200
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": false,
+      "layers": [
+        {
+          "type": "drop",
+          "angle": 135,
+          "distance": 100,
+          "blur": 40
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 1000,
+      "h": 800
+    }
+  },
+  {
+    "name": "no subject",
+    "src": [
+      1000,
+      800
+    ],
+    "subject": null,
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "drop",
+          "angle": 135,
+          "distance": 100,
+          "blur": 40
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 1000,
+      "h": 800
+    }
+  },
+  {
+    "name": "fits inside the image",
+    "src": [
+      1000,
+      800
+    ],
+    "subject": {
+      "x": 300,
+      "y": 300,
+      "w": 200,
+      "h": 200
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "drop",
+          "angle": 135,
+          "distance": 20,
+          "blur": 20
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 1000,
+      "h": 800
+    }
+  },
+  {
+    "name": "falls off the lower right",
+    "src": [
+      1000,
+      800
+    ],
+    "subject": {
+      "x": 800,
+      "y": 600,
+      "w": 200,
+      "h": 200
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "drop",
+          "angle": 135,
+          "distance": 100,
+          "blur": 40,
+          "opacity": 0.45
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 1131,
+      "h": 931
+    }
+  },
+  {
+    "name": "falls off the upper left",
+    "src": [
+      1000,
+      800
+    ],
+    "subject": {
+      "x": 0,
+      "y": 0,
+      "w": 200,
+      "h": 200
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "drop",
+          "angle": 315,
+          "distance": 100,
+          "blur": 0,
+          "opacity": 0.45
+        }
+      ]
+    },
+    "expected": {
+      "x": -71,
+      "y": -71,
+      "w": 1071,
+      "h": 871
+    }
+  },
+  {
+    "name": "positive spread grows",
+    "src": [
+      1000,
+      800
+    ],
+    "subject": {
+      "x": 900,
+      "y": 700,
+      "w": 100,
+      "h": 100
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "drop",
+          "angle": 135,
+          "distance": 0,
+          "blur": 0,
+          "spread": 30,
+          "opacity": 0.45
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 1030,
+      "h": 830
+    }
+  },
+  {
+    "name": "negative spread does not",
+    "src": [
+      1000,
+      800
+    ],
+    "subject": {
+      "x": 900,
+      "y": 700,
+      "w": 100,
+      "h": 100
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "drop",
+          "angle": 135,
+          "distance": 0,
+          "blur": 0,
+          "spread": -30,
+          "opacity": 0.45
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 1000,
+      "h": 800
+    }
+  },
+  {
+    "name": "two layers and a hidden one",
+    "src": [
+      1000,
+      800
+    ],
+    "subject": {
+      "x": 0,
+      "y": 0,
+      "w": 1000,
+      "h": 800
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "drop",
+          "angle": 135,
+          "distance": 50,
+          "blur": 0,
+          "opacity": 0.45
+        },
+        {
+          "type": "drop",
+          "angle": 315,
+          "distance": 80,
+          "blur": 0,
+          "opacity": 0.45
+        },
+        {
+          "type": "drop",
+          "visible": false,
+          "angle": 0,
+          "distance": 500,
+          "blur": 0,
+          "opacity": 0.45
+        },
+        {
+          "type": "drop",
+          "angle": 0,
+          "distance": 500,
+          "blur": 0,
+          "opacity": 0
+        }
+      ]
+    },
+    "expected": {
+      "x": -57,
+      "y": -57,
+      "w": 1093,
+      "h": 893
+    }
+  },
+  {
+    "name": "extreme settings are capped to one image size per side",
+    "src": [
+      100,
+      100
+    ],
+    "subject": {
+      "x": 0,
+      "y": 0,
+      "w": 100,
+      "h": 100
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "drop",
+          "angle": 135,
+          "distance": 500,
+          "blur": 200,
+          "spread": 100,
+          "opacity": 0.45
+        }
+      ]
+    },
+    "expected": {
+      "x": -47,
+      "y": -47,
+      "w": 247,
+      "h": 247
+    }
+  },
+  {
+    "name": "out of range values are clamped first",
+    "src": [
+      1000,
+      800
+    ],
+    "subject": {
+      "x": 800,
+      "y": 600,
+      "w": 200,
+      "h": 200
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "drop",
+          "angle": 135,
+          "distance": 99999,
+          "blur": -4,
+          "opacity": 0.45
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 1354,
+      "h": 1154
+    }
+  },
+  {
+    "name": "cast to the right grows the width",
+    "src": [
+      50,
+      50
+    ],
+    "subject": {
+      "x": 20,
+      "y": 20,
+      "w": 20,
+      "h": 20
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "cast",
+          "angle": 180,
+          "elevation": 45,
+          "length": 1,
+          "squash": 1,
+          "blur": 0,
+          "blurGrowth": 0,
+          "opacity": 0.4
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 60,
+      "h": 50
+    }
+  },
+  {
+    "name": "cast toward the viewer grows the height",
+    "src": [
+      50,
+      50
+    ],
+    "subject": {
+      "x": 20,
+      "y": 20,
+      "w": 20,
+      "h": 20
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "cast",
+          "angle": 90,
+          "elevation": 45,
+          "length": 1,
+          "squash": 0.5,
+          "blur": 0,
+          "blurGrowth": 0,
+          "opacity": 0.4
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 50,
+      "h": 50
+    }
+  },
+  {
+    "name": "cast away from the viewer grows upward",
+    "src": [
+      50,
+      50
+    ],
+    "subject": {
+      "x": 20,
+      "y": 2,
+      "w": 20,
+      "h": 40
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "cast",
+          "angle": 270,
+          "elevation": 40,
+          "length": 1,
+          "squash": 0.5,
+          "blur": 6,
+          "blurGrowth": 40,
+          "opacity": 0.4
+        }
+      ]
+    },
+    "expected": {
+      "x": -49,
+      "y": -50,
+      "w": 149,
+      "h": 150
+    }
+  },
+  {
+    "name": "cast blur growth widens the margin",
+    "src": [
+      50,
+      50
+    ],
+    "subject": {
+      "x": 20,
+      "y": 20,
+      "w": 20,
+      "h": 20
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "cast",
+          "angle": 200,
+          "elevation": 50,
+          "length": 1,
+          "squash": 0.6,
+          "blur": 10,
+          "blurGrowth": 60,
+          "opacity": 0.4
+        }
+      ]
+    },
+    "expected": {
+      "x": -50,
+      "y": -50,
+      "w": 150,
+      "h": 150
+    }
+  },
+  {
+    "name": "contact below the image bottom",
+    "src": [
+      50,
+      50
+    ],
+    "subject": {
+      "x": 20,
+      "y": 20,
+      "w": 20,
+      "h": 20
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "contact",
+          "size": 100,
+          "softness": 0,
+          "groundOffset": 20,
+          "opacity": 0.6
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 50,
+      "h": 85
+    }
+  },
+  {
+    "name": "contact softness",
+    "src": [
+      50,
+      50
+    ],
+    "subject": {
+      "x": 20,
+      "y": 20,
+      "w": 20,
+      "h": 20
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "contact",
+          "size": 40,
+          "softness": 30,
+          "groundOffset": 0,
+          "opacity": 0.6
+        }
+      ]
+    },
+    "expected": {
+      "x": -25,
+      "y": -5,
+      "w": 110,
+      "h": 100
+    }
+  },
+  {
+    "name": "manual ground line moves contact and cast",
+    "src": [
+      50,
+      50
+    ],
+    "subject": {
+      "x": 20,
+      "y": 20,
+      "w": 20,
+      "h": 20
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "contact",
+          "size": 40,
+          "softness": 8,
+          "groundOffset": 0,
+          "opacity": 0.6
+        },
+        {
+          "type": "cast",
+          "angle": 135,
+          "elevation": 40,
+          "length": 1,
+          "squash": 0.5,
+          "blur": 6,
+          "blurGrowth": 0,
+          "opacity": 0.4
+        }
+      ],
+      "groundY": 0.9
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 71,
+      "h": 67
+    }
+  },
+  {
+    "name": "grazing light is capped at six subject heights",
+    "src": [
+      50,
+      50
+    ],
+    "subject": {
+      "x": 20,
+      "y": 20,
+      "w": 20,
+      "h": 20
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "cast",
+          "angle": 180,
+          "elevation": 5,
+          "length": 2,
+          "squash": 1,
+          "blur": 0,
+          "blurGrowth": 0,
+          "opacity": 0.4
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 100,
+      "h": 50
+    }
+  },
+  {
+    "name": "drop contact and cast stacked",
+    "src": [
+      400,
+      300
+    ],
+    "subject": {
+      "x": 100,
+      "y": 50,
+      "w": 150,
+      "h": 200
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "drop",
+          "angle": 135,
+          "distance": 30,
+          "blur": 20,
+          "opacity": 0.45
+        },
+        {
+          "type": "contact",
+          "size": 40,
+          "softness": 12,
+          "groundOffset": 4,
+          "opacity": 0.6
+        },
+        {
+          "type": "cast",
+          "angle": 160,
+          "elevation": 35,
+          "length": 0.8,
+          "squash": 0.4,
+          "blur": 6,
+          "blurGrowth": 40,
+          "opacity": 0.4
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 534,
+      "h": 351
+    }
+  },
+  {
+    "name": "reflection grows the height by gap and fade",
+    "src": [
+      50,
+      50
+    ],
+    "subject": {
+      "x": 20,
+      "y": 20,
+      "w": 20,
+      "h": 20
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "reflection",
+          "gap": 10,
+          "fade": 100,
+          "blur": 0,
+          "opacity": 0.35
+        }
+      ]
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 50,
+      "h": 70
+    }
+  },
+  {
+    "name": "reflection blur widens the margin",
+    "src": [
+      50,
+      50
+    ],
+    "subject": {
+      "x": 20,
+      "y": 20,
+      "w": 20,
+      "h": 20
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "reflection",
+          "gap": 2,
+          "fade": 15,
+          "blur": 20,
+          "opacity": 0.35
+        }
+      ]
+    },
+    "expected": {
+      "x": -10,
+      "y": 0,
+      "w": 80,
+      "h": 87
+    }
+  },
+  {
+    "name": "reflection follows a manual ground line",
+    "src": [
+      50,
+      50
+    ],
+    "subject": {
+      "x": 20,
+      "y": 20,
+      "w": 20,
+      "h": 20
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "reflection",
+          "gap": 4,
+          "fade": 200,
+          "blur": 4,
+          "opacity": 0.35
+        }
+      ],
+      "groundY": 0.9
+    },
+    "expected": {
+      "x": 0,
+      "y": 0,
+      "w": 50,
+      "h": 80
+    }
+  },
+  {
+    "name": "soft studio style stack",
+    "src": [
+      50,
+      50
+    ],
+    "subject": {
+      "x": 20,
+      "y": 20,
+      "w": 20,
+      "h": 20
+    },
+    "shadow": {
+      "enabled": true,
+      "autoExpand": true,
+      "layers": [
+        {
+          "type": "reflection",
+          "gap": 2,
+          "fade": 140,
+          "blur": 3,
+          "opacity": 0.18
+        },
+        {
+          "type": "drop",
+          "angle": 90,
+          "distance": 22,
+          "blur": 120,
+          "spread": 0,
+          "opacity": 0.22
+        },
+        {
+          "type": "contact",
+          "size": 24,
+          "softness": 10,
+          "groundOffset": 0,
+          "opacity": 0.4
+        }
+      ]
+    },
+    "expected": {
+      "x": -50,
+      "y": -50,
+      "w": 150,
+      "h": 150
+    }
+  }
+]

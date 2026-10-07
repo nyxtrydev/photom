@@ -1,12 +1,19 @@
 import { create } from 'zustand';
 import type { ExportItemRequest } from '@/api/export';
+import type { ShadowState } from '@/canvas/shadow';
 import type { ExportOptionsApi, JobSnapshot } from '@/types/export';
+import type { UpscaleParams } from '@/types/upscale';
 
 /** What was started, kept so failed items can be retried. */
 export interface JobRequest {
-  kind: 'export' | 'removeBackground';
+  kind: 'export' | 'removeBackground' | 'applyShadow' | 'upscale' | 'upscaleBatch';
   items: ExportItemRequest[];
+  /** applyShadow: the shadow each image takes once its check passes. */
+  shadows?: Record<string, ShadowState>;
+  label?: string;
   options?: ExportOptionsApi;
+  /** upscaleBatch: the settings every image was started with (for retry). */
+  upscaleParams?: UpscaleParams;
 }
 
 interface QueueState {

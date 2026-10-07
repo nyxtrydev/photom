@@ -1,11 +1,13 @@
 import { Loader2, Maximize, Minus, Plus } from 'lucide-react';
 import * as Slider from '@radix-ui/react-slider';
+import { ModelDownloadChip } from '@/components/ModelDownloadChip';
 import { fitView, setZoom, zoomStep } from '@/app/viewActions';
 import { MAX_ZOOM, MIN_ZOOM } from '@/canvas/viewport';
 import { strings } from '@/i18n/strings';
 import { useActiveState, useEditorStore } from '@/stores/editorStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useUiStore } from '@/stores/uiStore';
+import { useUpscaleStore } from '@/stores/upscaleStore';
 
 const s = strings.editor.status;
 const small =
@@ -20,6 +22,7 @@ export function EditorStatusBar() {
   const state = useActiveState();
   const id = useEditorStore((st) => st.activeId);
   const busy = useProjectStore((st) => (id ? st.processing[id] === true : false));
+  const upscaling = useUpscaleStore((st) => (id ? st.runs[id]?.phase === 'running' : false));
   const autosaved = useUiStore((st) => st.lastAutosave);
   const zoom = state?.viewport?.zoom ?? 1;
   const off = !state?.viewport;
@@ -70,7 +73,11 @@ export function EditorStatusBar() {
       </button>
 
       <span className="ml-8 text-fg-muted">
-        {state ? `${state.source.width} × ${state.source.height}` : s.noImage}
+        {state
+          ? state.upscale
+            ? `${state.upscale.width} × ${state.upscale.height} (${strings.upscale.upscaledTag})`
+            : `${state.source.width} × ${state.source.height}`
+          : s.noImage}
       </span>
       <span className="text-border" aria-hidden>
         |
@@ -86,13 +93,14 @@ export function EditorStatusBar() {
       )}
 
       <span role="status" aria-live="polite" className="ml-auto flex items-center gap-2">
-        {busy && (
+        {(busy || upscaling) && (
           <>
             <Loader2 size={18} className="animate-spin text-primary" aria-hidden />
-            {s.processing}
+            {upscaling ? strings.upscale.status : s.processing}
           </>
         )}
       </span>
+      <ModelDownloadChip />
     </footer>
   );
 }

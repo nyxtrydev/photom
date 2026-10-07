@@ -71,3 +71,7 @@ Useful commands:
 - [Architecture](docs/ARCHITECTURE.md), [Decisions](docs/DECISIONS.md), [Design tokens](docs/DESIGN_TOKENS.md)
 - [Project file format](docs/PROJECT_FILE_FORMAT.md), [Performance](docs/PERFORMANCE.md), [Releasing](docs/RELEASING.md)
 - [Third-party licences](THIRD_PARTY_LICENSES.md)
+
+## Optional models
+
+Background removal works from the first launch. Extra AI tools use optional models that you install with one click (Settings > Models) and that then work fully offline. See [docs/MODEL_HUB.md](docs/MODEL_HUB.md) for how models are catalogued, verified and published.

@@ -216,7 +216,14 @@ export function History() {
                     {i.name}
                   </span>
                   <span className="block text-xs text-fg-muted">
-                    {i.kind === 'export' ? t.export : t.project} · {when(i.timestamp)}
+                    {i.kind === 'export'
+                      ? t.export
+                      : i.kind === 'shadow'
+                        ? t.shadow
+                        : i.kind === 'upscale'
+                          ? t.upscale
+                          : t.project}{' '}
+                    · {when(i.timestamp)}
                   </span>
                   {view === 'list' && i.outputPath && (
                     <span className="block truncate text-xs text-fg-muted">{i.outputPath}</span>

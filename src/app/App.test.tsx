@@ -48,7 +48,9 @@ describe('App shell', () => {
     render(<App />);
     await userEvent.click(screen.getByRole('button', { name: 'Model missing' }));
     expect(useUiStore.getState()).toMatchObject({ settingsOpen: true, settingsTab: 'model' });
-    expect(await screen.findByRole('tab', { name: 'Model', selected: true })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('tab', { name: 'Background removal', selected: true }),
+    ).toBeInTheDocument();
   });
 
   it('shows a loading skeleton while the model loads', () => {

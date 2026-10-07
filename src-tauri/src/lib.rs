@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod infra;
 pub mod launch;
+pub mod model_hub;
 pub mod models;
 pub mod services;
 pub mod smoke;
@@ -11,7 +12,7 @@ mod tests;
 
 use std::sync::{Arc, Mutex, RwLock};
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -52,16 +53,57 @@ pub fn run() {
                 user_models,
                 app.path().resource_dir().ok(),
             );
+            let hub_events = app.handle().clone();
+            let hub = Arc::new(model_hub::ModelHub::new(
+                data_dir.join("models"),
+                models.clone(),
+                Arc::new(move |name, payload| {
+                    let _ = hub_events.emit(name, payload);
+                }),
+            ));
             let settings = commands::settings::load(app.handle());
+            let installer = model_hub::installer::Installer::new(
+                hub.clone(),
+                model_hub::downloader::NetConfig::default(),
+                tauri::async_runtime::handle().inner().clone(),
+            )?;
+            let engine: Arc<services::inference::InferenceEngine> = Arc::new(Default::default());
+            let sessions = Arc::new(model_hub::session_cache::SessionCache::default());
+            {
+                // Removing or replacing a model first lets go of every session built from it.
+                let (sessions, engine) = (sessions.clone(), engine.clone());
+                hub.add_unload_hook(Arc::new(move |id| {
+                    use model_hub::hub::{BG_FAST, BG_QUALITY};
+                    sessions.evict(id);
+                    let kind = match id {
+                        BG_FAST => models::dto::ModelKind::Fast,
+                        BG_QUALITY => models::dto::ModelKind::Quality,
+                        _ => return,
+                    };
+                    if engine.loaded_info().is_some_and(|l| l.kind == kind) {
+                        engine.unload();
+                    }
+                }));
+            }
+            if let Err(e) = installer.apply_overrides(
+                settings.models_catalog_url.as_deref(),
+                settings.models_extra_host.as_deref(),
+            ) {
+                tracing::warn!(error = %e, "ignoring the model download overrides");
+            }
             app.manage(state::AppState {
                 images: Default::default(),
-                engine: Arc::new(Default::default()),
+                engine,
+                sessions,
                 models,
+                hub,
+                installer,
                 settings: Arc::new(RwLock::new(settings)),
                 jobs: Arc::new(infra::job_queue::JobQueue::default()),
                 history: Arc::new(Mutex::new(services::history::HistoryStore::load(
                     data_dir.join("history.json"),
                 ))),
+                upscale: Default::default(),
                 pending_update: Default::default(),
                 launch_file: Arc::new(Mutex::new(launch::project_from_args(std::env::args()))),
                 frontend_ready: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -104,6 +146,20 @@ pub fn run() {
             commands::settings::import_model,
             commands::settings::paths_exist,
             commands::settings::read_licences,
+            model_hub::commands::models_list,
+            model_hub::commands::model_catalog_status,
+            model_hub::commands::model_check_requirements,
+            model_hub::commands::models_refresh_catalog,
+            model_hub::commands::model_install,
+            model_hub::commands::model_pause,
+            model_hub::commands::model_resume,
+            model_hub::commands::model_cancel,
+            model_hub::commands::model_install_many,
+            model_hub::commands::model_install_recommended,
+            model_hub::commands::model_install_all,
+            model_hub::commands::model_open_folder,
+            model_hub::commands::model_import_file,
+            model_hub::commands::model_remove,
             commands::updates::check_for_update,
             commands::updates::install_update,
             commands::updates::restart_app,
@@ -120,6 +176,18 @@ pub fn run() {
             commands::export::list_export_presets,
             commands::export::save_export_preset,
             commands::export::delete_export_preset,
+            commands::shadow::list_shadow_presets,
+            commands::shadow::save_shadow_preset,
+            commands::shadow::delete_shadow_preset,
+            commands::shadow::shadow_apply_batch,
+            commands::upscale::upscale_estimate,
+            commands::upscale::upscale_run,
+            commands::upscale::upscale_accept,
+            commands::upscale::upscale_discard,
+            commands::upscale::upscale_cancel,
+            commands::upscale::upscale_batch,
+            commands::upscale::upscale_loupe,
+            commands::upscale::upscale_requirements,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Photom")
@@ -138,6 +206,7 @@ pub fn run() {
             if let tauri::RunEvent::Exit = event {
                 if let Some(st) = app.try_state::<state::AppState>() {
                     st.engine.unload();
+                    st.sessions.clear();
                 }
             }
         });

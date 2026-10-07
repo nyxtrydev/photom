@@ -76,9 +76,16 @@ async function openTab(name: string) {
 }
 
 describe('Settings dialog', () => {
-  it('has the five tabs from the spec', async () => {
+  it('has the tabs from the spec plus Models', async () => {
     render(<SettingsDialog />);
-    for (const name of ['General', 'Model', 'Export', 'Shortcuts', 'About']) {
+    for (const name of [
+      'General',
+      'Background removal',
+      'Models',
+      'Export',
+      'Shortcuts',
+      'About',
+    ]) {
       expect(await screen.findByRole('tab', { name })).toBeInTheDocument();
     }
   });
@@ -102,7 +109,7 @@ describe('Settings dialog', () => {
   });
 
   it('switches model and processing, with the GPU fallback note', async () => {
-    await openTab('Model');
+    await openTab('Background removal');
     expect(screen.getByText(/Falls back to CPU automatically/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('radio', { name: /GPU if available/ }));
     expect(lastSaved()?.processing).toBe('gpuIfAvailable');
@@ -114,7 +121,7 @@ describe('Settings dialog', () => {
   it('imports a model file and reports success', async () => {
     vi.mocked(pickModelFile).mockResolvedValue('/downloads/birefnet.onnx');
     vi.mocked(importModel).mockResolvedValue(undefined);
-    await openTab('Model');
+    await openTab('Background removal');
     await userEvent.click(screen.getByRole('button', { name: 'Import model file...' }));
     expect(importModel).toHaveBeenCalledWith('fast', '/downloads/birefnet.onnx');
     expect(useUiStore.getState().notices.at(-1)?.kind).toBe('success');
@@ -127,7 +134,7 @@ describe('Settings dialog', () => {
       message: 'not a model',
       details: null,
     });
-    await openTab('Model');
+    await openTab('Background removal');
     await userEvent.click(screen.getByRole('button', { name: 'Import model file...' }));
     expect(useUiStore.getState().notices.at(-1)).toMatchObject({
       kind: 'error',

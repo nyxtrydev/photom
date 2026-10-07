@@ -1,0 +1,281 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-06T00:00:00Z",
+  "models": [
+    {
+      "id": "bgremoval-fast",
+      "name": "Background Remover (Fast)",
+      "feature": "background-removal",
+      "version": "1.0.0",
+      "description": "ISNet general-use. Ships with Photom.",
+      "sizeBytes": 90634529,
+      "sha256": "45f290cb2f44771e27f9d77645201617e704a30ce89d5a928089a0a8fa293c06",
+      "format": "onnx",
+      "files": [
+        {
+          "path": "isnet-general-use-fp16.onnx",
+          "sizeBytes": 90634529,
+          "sha256": "45f290cb2f44771e27f9d77645201617e704a30ce89d5a928089a0a8fa293c06"
+        }
+      ],
+      "urls": [],
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://github.com/xuebinqin/DIS/blob/main/LICENSE.txt",
+        "commercialUse": true,
+        "attribution": "ISNet / DIS by Xuebin Qin et al."
+      },
+      "requirements": {
+        "minRamMb": 2048,
+        "gpuOptional": true
+      },
+      "runtime": {
+        "inputSize": [
+          1024,
+          1024
+        ],
+        "normalization": "half",
+        "notes": "weights stored as float16"
+      },
+      "recommended": true,
+      "dependsOn": []
+    },
+    {
+      "id": "bgremoval-quality",
+      "name": "Background Remover (Quality)",
+      "feature": "background-removal",
+      "version": "1.0.0",
+      "description": "BiRefNet: cleaner edges on hair and fine detail, slower.",
+      "sizeBytes": 943718400,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "format": "onnx",
+      "files": [
+        {
+          "path": "birefnet-general.onnx",
+          "sizeBytes": 943718400,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "urls": [
+        "https://models.photom.example/bgremoval-quality/1.0.0/birefnet-general.onnx"
+      ],
+      "license": {
+        "name": "MIT",
+        "url": "https://github.com/ZhengPeng7/BiRefNet/blob/main/LICENSE",
+        "commercialUse": true,
+        "attribution": "BiRefNet by Peng Zheng et al."
+      },
+      "requirements": {
+        "minRamMb": 8192,
+        "gpuOptional": true
+      },
+      "runtime": {
+        "inputSize": [
+          1024,
+          1024
+        ],
+        "normalization": "imagenet",
+        "notes": "logits, sigmoid applied"
+      },
+      "recommended": false,
+      "dependsOn": []
+    },
+    {
+      "id": "text-detector",
+      "name": "Text Detector",
+      "feature": "text-removal",
+      "version": "1.0.0",
+      "description": "Finds text regions automatically.",
+      "sizeBytes": 62914560,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "format": "onnx",
+      "files": [
+        {
+          "path": "model.onnx",
+          "sizeBytes": 62914560,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "urls": [
+        "https://models.photom.example/text-detector/1.0.0/model.onnx"
+      ],
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0",
+        "commercialUse": true,
+        "attribution": "DBNet-class detector"
+      },
+      "requirements": {
+        "minRamMb": 2048,
+        "gpuOptional": true
+      },
+      "runtime": {
+        "inputSize": [
+          640,
+          640
+        ],
+        "normalization": "imagenet",
+        "notes": ""
+      },
+      "recommended": true,
+      "dependsOn": []
+    },
+    {
+      "id": "inpaint-lama",
+      "name": "Inpainting (LaMa)",
+      "feature": "text-removal",
+      "version": "1.0.0",
+      "description": "Fills removed areas with matching texture.",
+      "sizeBytes": 209715200,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "format": "onnx",
+      "files": [
+        {
+          "path": "model.onnx",
+          "sizeBytes": 209715200,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "urls": [
+        "https://models.photom.example/inpaint-lama/1.0.0/model.onnx"
+      ],
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://github.com/advimman/lama/blob/main/LICENSE",
+        "commercialUse": true,
+        "attribution": "LaMa by Roman Suvorov et al."
+      },
+      "requirements": {
+        "minRamMb": 4096,
+        "gpuOptional": true
+      },
+      "runtime": {
+        "inputSize": [
+          512,
+          512
+        ],
+        "normalization": "unit",
+        "notes": ""
+      },
+      "recommended": true,
+      "dependsOn": []
+    },
+    {
+      "id": "upscale-x2",
+      "name": "Upscaler x2",
+      "feature": "upscale",
+      "version": "1.0.0",
+      "description": "Real-ESRGAN, 2x general photos. Ships with Photom.",
+      "sizeBytes": 67073434,
+      "sha256": "7115ba92e8a1bfa63d68558ef006ef3d91273a068d321b1439f8bb1c9179002c",
+      "format": "onnx",
+      "files": [
+        {
+          "path": "realesrgan-x2.onnx",
+          "sizeBytes": 67073434,
+          "sha256": "7115ba92e8a1bfa63d68558ef006ef3d91273a068d321b1439f8bb1c9179002c"
+        }
+      ],
+      "urls": [],
+      "license": {
+        "name": "BSD-3-Clause",
+        "url": "https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE",
+        "commercialUse": true,
+        "attribution": "Real-ESRGAN by Xintao Wang et al."
+      },
+      "requirements": {
+        "minRamMb": 2048,
+        "gpuOptional": true
+      },
+      "runtime": {
+        "inputSize": [
+          256,
+          256
+        ],
+        "normalization": "unit",
+        "notes": "tiled; dynamic input size"
+      },
+      "recommended": true,
+      "dependsOn": []
+    },
+    {
+      "id": "upscale-x4",
+      "name": "Upscaler x4",
+      "feature": "upscale",
+      "version": "1.0.0",
+      "description": "Real-ESRGAN, 4x general photos. Ships with Photom.",
+      "sizeBytes": 67051616,
+      "sha256": "5c586662929cbc686c1a5c38d9c060dbdb4ea5863a1f7672b8c0761e6b89c033",
+      "format": "onnx",
+      "files": [
+        {
+          "path": "realesrgan-x4.onnx",
+          "sizeBytes": 67051616,
+          "sha256": "5c586662929cbc686c1a5c38d9c060dbdb4ea5863a1f7672b8c0761e6b89c033"
+        }
+      ],
+      "urls": [],
+      "license": {
+        "name": "BSD-3-Clause",
+        "url": "https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE",
+        "commercialUse": true,
+        "attribution": "Real-ESRGAN by Xintao Wang et al."
+      },
+      "requirements": {
+        "minRamMb": 2048,
+        "gpuOptional": true
+      },
+      "runtime": {
+        "inputSize": [
+          256,
+          256
+        ],
+        "normalization": "unit",
+        "notes": "tiled; dynamic input size"
+      },
+      "recommended": true,
+      "dependsOn": []
+    },
+    {
+      "id": "denoise-ai",
+      "name": "AI Denoise",
+      "feature": "enhancement",
+      "version": "1.0.0",
+      "description": "NAFNet-class denoiser for noisy photos.",
+      "sizeBytes": 62914560,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "format": "onnx",
+      "files": [
+        {
+          "path": "model.onnx",
+          "sizeBytes": 62914560,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "urls": [
+        "https://models.photom.example/denoise-ai/1.0.0/model.onnx"
+      ],
+      "license": {
+        "name": "MIT",
+        "url": "https://github.com/megvii-research/NAFNet/blob/main/LICENSE",
+        "commercialUse": true,
+        "attribution": "NAFNet by Megvii Research"
+      },
+      "requirements": {
+        "minRamMb": 2048,
+        "gpuOptional": true
+      },
+      "runtime": {
+        "inputSize": [
+          256,
+          256
+        ],
+        "normalization": "unit",
+        "notes": "tiled"
+      },
+      "recommended": false,
+      "dependsOn": []
+    }
+  ],
+  "signature": "6pXOUmZkfusWpud16l7irIm+AG9aVKQKPIe9YV2mWv0R2uGHwj6uv0Ct8xX2Gkx6R+MyAwVapZcA8REYF8EfAw=="
+}

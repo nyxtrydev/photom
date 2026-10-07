@@ -80,10 +80,10 @@ fn gpu_providers() -> Vec<ort::ep::ExecutionProviderDispatch> {
     Vec::new()
 }
 
-fn load(path: &Path, spec: &ModelSpec, pref: DevicePref) -> AppResult<Loaded> {
+/// Open an ONNX session, on the GPU when asked for and available (falling back to CPU).
+/// Shared by the background-removal engine and the Model Hub's session cache.
+pub fn open_session(path: &Path, pref: DevicePref) -> AppResult<(Session, DeviceUsed)> {
     ensure_runtime();
-    model_manager::verify(path, spec)?;
-
     let build = |providers: &[ort::ep::ExecutionProviderDispatch]| -> Result<Session, String> {
         let mut b = Session::builder().map_err(|e| e.to_string())?;
         // Default graph optimisation level (all supported optimisations) is what we want.
@@ -115,7 +115,13 @@ fn load(path: &Path, spec: &ModelSpec, pref: DevicePref) -> AppResult<Loaded> {
         Some(s) => s,
         None => build(&[]).map_err(AppError::ModelLoad)?,
     };
-    tracing::info!(model = %path.display(), ?device, "model session ready");
+    tracing::info!(?device, "model session ready");
+    Ok((session, device))
+}
+
+fn load(path: &Path, spec: &ModelSpec, pref: DevicePref) -> AppResult<Loaded> {
+    model_manager::verify(path, spec)?;
+    let (session, device) = open_session(path, pref)?;
     Ok(Loaded {
         session,
         kind: spec.kind,

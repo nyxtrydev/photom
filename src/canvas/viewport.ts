@@ -9,6 +9,46 @@ export const MAX_ZOOM = 8;
 
 export const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 
+/** A rectangle in source pixels (the editing frame: the image plus any shadow margin). */
+export interface FrameRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Zoom that fits `rect` inside the view, centred. */
+export function fitViewportToRect(
+  rect: FrameRect,
+  viewW: number,
+  viewH: number,
+  padding = 24,
+): Viewport {
+  const availW = Math.max(1, viewW - padding * 2);
+  const availH = Math.max(1, viewH - padding * 2);
+  const zoom = clampZoom(Math.min(availW / rect.w, availH / rect.h));
+  return {
+    zoom,
+    panX: (viewW - rect.w * zoom) / 2 - rect.x * zoom,
+    panY: (viewH - rect.h * zoom) / 2 - rect.y * zoom,
+  };
+}
+
+/** Keep at least `keep` px of `rect` inside the view so it can't be lost off-screen. */
+export function clampPanToRect(
+  vp: Viewport,
+  rect: FrameRect,
+  viewW: number,
+  viewH: number,
+  keep = 80,
+): Viewport {
+  const w = rect.w * vp.zoom;
+  const h = rect.h * vp.zoom;
+  const left = Math.min(viewW - keep, Math.max(keep - w, vp.panX + rect.x * vp.zoom));
+  const top = Math.min(viewH - keep, Math.max(keep - h, vp.panY + rect.y * vp.zoom));
+  return { ...vp, panX: left - rect.x * vp.zoom, panY: top - rect.y * vp.zoom };
+}
+
 /** Zoom that fits the whole image inside the view, centred. */
 export function fitViewport(
   imgW: number,

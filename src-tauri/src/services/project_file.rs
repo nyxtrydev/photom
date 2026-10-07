@@ -12,11 +12,14 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 use super::image_io;
 use super::import::{ImageRecord, ImageRegistry};
+use super::upscale::{Engine, KeptUpscale};
 use crate::models::dto::{DeviceUsed, ImageMeta, MaskResult};
 use crate::models::error::{AppError, AppResult};
 use crate::models::project::{OpenedImage, OpenedProject, ProjectMeta, ProjectPayload};
 
-pub const FORMAT_VERSION: u32 = 1;
+/// 2 added per-image `shadow` settings in state.json (older files simply have none).
+/// 3 added a kept upscaled version per image (`upscaled` in the manifest, `upscale` in state.json).
+pub const FORMAT_VERSION: u32 = 3;
 pub const EXTENSION: &str = "photom";
 const MAX_MANIFEST_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_ENTRY_BYTES: u64 = 2 * 1024 * 1024 * 1024;
@@ -50,10 +53,25 @@ pub struct ManifestImage {
     pub state_file: String,
     pub thumb_file: Option<String>,
     pub background_file: Option<String>,
+    /// The kept upscaled version (format 3). Absent in older projects.
+    #[serde(default)]
+    pub upscaled: Option<ManifestUpscaled>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManifestUpscaled {
+    pub file: String,
+    pub width: u32,
+    pub height: u32,
+    pub scale: Option<u32>,
+    pub engine: Engine,
 }
 
 /// Bring a manifest of any known version up to `FORMAT_VERSION`.
 /// - v0 (pre-release): images used `file` instead of `originalFile`, no `projectId`/`created`.
+/// - v1 -> v2: nothing to rewrite; `state.json` files without `shadow` mean "no shadow".
+/// - v2 -> v3: nothing to rewrite; a manifest image without `upscaled` has no kept upscale.
 pub fn migrate_manifest(mut v: Value) -> AppResult<Value> {
     let version = v.get("formatVersion").and_then(Value::as_u64).unwrap_or(0) as u32;
     if version > FORMAT_VERSION {
@@ -88,6 +106,9 @@ pub fn migrate_manifest(mut v: Value) -> AppResult<Value> {
             }
         }
         obj.insert("formatVersion".into(), json!(1));
+    }
+    if let Some(obj) = v.as_object_mut() {
+        obj.insert("formatVersion".into(), json!(FORMAT_VERSION));
     }
     Ok(v)
 }
@@ -283,6 +304,23 @@ fn build_archive(
             }
             _ => None,
         };
+        let upscaled = match registry.upscaled(&p.id)? {
+            Some(k) if k.path.is_file() => {
+                let name = match k.scale {
+                    Some(s) => format!("{dir}/upscaled_{s}x.png"),
+                    None => format!("{dir}/upscaled_custom.png"),
+                };
+                b.add_file(&name, &k.path)?;
+                Some(ManifestUpscaled {
+                    file: name,
+                    width: k.width,
+                    height: k.height,
+                    scale: k.scale,
+                    engine: k.engine,
+                })
+            }
+            _ => None,
+        };
         let state_file = format!("{dir}/state.json");
         let state =
             serde_json::to_vec_pretty(&p.state).map_err(|e| AppError::Internal(e.to_string()))?;
@@ -300,6 +338,7 @@ fn build_archive(
             state_file,
             thumb_file,
             background_file,
+            upscaled,
         });
     }
 
@@ -505,7 +544,41 @@ pub fn read_project(
             source,
             mask_path,
         })?;
-        images.push(OpenedImage { meta, state, mask });
+        let upscaled = match &mi.upscaled {
+            Some(u) => {
+                let dest = project_dir
+                    .join("images")
+                    .join(&mi.id)
+                    .join(Path::new(&u.file).file_name().unwrap_or_default());
+                match extract_entry(&mut archive, &u.file, &dest) {
+                    Ok(()) => {
+                        let kept = KeptUpscale {
+                            path: dest,
+                            width: u.width,
+                            height: u.height,
+                            scale: u.scale,
+                            engine: u.engine,
+                        };
+                        registry.set_upscaled(&mi.id, Some(kept.clone()))?;
+                        Some(kept)
+                    }
+                    Err(e) => {
+                        warnings.push(format!(
+                            "{}: the upscaled version is unreadable ({e})",
+                            mi.name
+                        ));
+                        None
+                    }
+                }
+            }
+            None => None,
+        };
+        images.push(OpenedImage {
+            meta,
+            state,
+            mask,
+            upscaled,
+        });
     }
 
     Ok(OpenedProject {

@@ -8,7 +8,10 @@ import {
   resumeJob,
   type ExportItemRequest,
 } from '@/api/export';
+import { shadowApplyBatch } from '@/api/shadow';
 import { revealPath } from '@/api/settings';
+import { shadowToPersisted } from '@/canvas/shadow';
+import { longestSide, presetFromShadow, shadowFromPreset } from '@/canvas/shadowPresets';
 import { strings } from '@/i18n/strings';
 import { useEditorStore } from '@/stores/editorStore';
 import { toPersisted } from '@/stores/persist';
@@ -26,6 +29,13 @@ import {
   type JobSnapshot,
 } from '@/types/export';
 import { updateSettings } from './settingsActions';
+import {
+  cancelUpscaleBatch,
+  handleUpscaleBatchItem,
+  handleUpscaleComplete,
+  handleUpscaleFinished,
+  retryUpscaleBatch,
+} from './upscaleActions';
 import { reportError } from './errors';
 
 const notify = useUiStore.getState;
@@ -102,6 +112,28 @@ function reportFinished(snap: JobSnapshot) {
     notify().notify('info', m.cancelled(ok.length, snap.total));
     return;
   }
+  if (snap.kind === 'upscale') {
+    handleUpscaleFinished(snap);
+    return;
+  }
+  if (snap.kind === 'upscaleBatch') {
+    for (const i of ok) handleUpscaleBatchItem(i.result);
+    notify().notify(
+      failed > 0 ? 'warning' : 'success',
+      m.upscaled(ok.length, snap.total),
+      failed > 0 ? m.upscaleFailed(failed) : undefined,
+    );
+    return;
+  }
+  if (snap.kind === 'applyShadow') {
+    for (const i of ok) adoptShadow(snap.jobId, i.id);
+    notify().notify(
+      failed > 0 ? 'warning' : 'success',
+      m.shadowApplied(ok.length, snap.total),
+      failed > 0 ? m.shadowFailed(failed) : undefined,
+    );
+    return;
+  }
   if (snap.kind === 'removeBackground') {
     notify().notify(failed > 0 ? 'warning' : 'success', m.removed(ok.length, snap.total));
     return;
@@ -142,8 +174,37 @@ function applyMaskResult(mask: MaskResult) {
   ed.recordRerun(mask.id, previous, mask);
 }
 
+const adopted = new Set<string>();
+
+/**
+ * An image passed the shadow check: give it the shadow it was checked with, as one undo step.
+ * Safe to call twice (item events and the final summary both do).
+ */
+function adoptShadow(jobId: string, imageId: string) {
+  const key = `${jobId}:${imageId}`;
+  const shadow = useQueueStore.getState().requests[jobId]?.shadows?.[imageId];
+  if (!shadow || adopted.has(key)) return;
+  adopted.add(key);
+  const img = useProjectStore.getState().images.find((i) => i.id === imageId);
+  if (!img) return;
+  const ed = useEditorStore.getState();
+  ed.ensureState(imageId, img.width, img.height);
+  ed.setShadow(imageId, () => shadow);
+}
+
 export function handleItemComplete(e: JobItemComplete) {
+  if (useQueueStore.getState().requests[e.jobId]?.kind === 'upscale') {
+    handleUpscaleComplete(e.result);
+    void refreshJob(e.jobId);
+    return;
+  }
+  if (useQueueStore.getState().requests[e.jobId]?.kind === 'upscaleBatch') {
+    handleUpscaleBatchItem(e.result);
+    void refreshJob(e.jobId);
+    return;
+  }
   const r = e.result as Partial<MaskResult> | null;
+  if (r && (r as { applied?: boolean }).applied === true) adoptShadow(e.jobId, e.itemId);
   if (r && typeof r.maskPath === 'string' && typeof r.id === 'string')
     applyMaskResult(r as MaskResult);
   void refreshJob(e.jobId);
@@ -196,6 +257,52 @@ export async function startBatchRemoval(ids?: string[]): Promise<void> {
   }
 }
 
+/**
+ * Give every other image with a cut-out the active image's shadow, scaled to its own size (the
+ * same preset maths as choosing a preset), checking each at full resolution in a background job.
+ * Ground lines are re-detected per image.
+ */
+export async function applyShadowToAll(): Promise<void> {
+  const ed = useEditorStore.getState();
+  const project = useProjectStore.getState();
+  const id = ed.activeId;
+  const from = id ? ed.states[id] : undefined;
+  const cur = from?.shadow;
+  if (!id || !from || !cur || cur.layers.length === 0) {
+    notify().notify('info', strings.exportMsg.shadowNone);
+    return;
+  }
+  const others = project.images.filter((i) => i.id !== id);
+  const targets = others.filter((i) => project.masks[i.id]);
+  if (targets.length === 0) {
+    notify().notify('info', strings.exportMsg.shadowNothing);
+    return;
+  }
+  const preset = presetFromShadow('', cur, longestSide(from.source));
+  const shadows: Record<string, ReturnType<typeof shadowFromPreset>> = {};
+  const items: ExportItemRequest[] = targets.map((img) => {
+    ed.ensureState(img.id, img.width, img.height);
+    const state = useEditorStore.getState().states[img.id]!;
+    const next = {
+      ...shadowFromPreset(preset, longestSide(img), { ...cur, groundY: null }),
+      presetId: cur.presetId,
+    };
+    shadows[img.id] = next;
+    return { id: img.id, state: { ...toPersisted(state), shadow: shadowToPersisted(next) } };
+  });
+  const label = cur.presetId ?? '';
+  try {
+    const jobId = await shadowApplyBatch(items, label);
+    useQueueStore.getState().setRequest(jobId, { kind: 'applyShadow', items, shadows, label });
+    useQueueStore.getState().openDialog(jobId);
+    void refreshJob(jobId);
+    const skipped = others.length - targets.length;
+    if (skipped > 0) notify().notify('warning', strings.exportMsg.shadowSkipped(skipped));
+  } catch (e) {
+    fail(e);
+  }
+}
+
 /** Run only the failed items of a finished job again. */
 export async function retryFailed(jobId: string): Promise<void> {
   const q = useQueueStore.getState();
@@ -203,6 +310,24 @@ export async function retryFailed(jobId: string): Promise<void> {
   const req: JobRequest | undefined = q.requests[jobId];
   if (!snap || !req) return;
   const failedIds = new Set(snap.items.filter((i) => i.status === 'failed').map((i) => i.id));
+  if (req.kind === 'upscaleBatch') {
+    await retryUpscaleBatch(jobId);
+    return;
+  }
+  if (req.kind === 'applyShadow') {
+    // The checked shadow travels with each item, so retry sends exactly what failed.
+    const again = req.items.filter((i) => failedIds.has(i.id));
+    if (again.length === 0) return;
+    try {
+      const next = await shadowApplyBatch(again, req.label ?? '');
+      useQueueStore.getState().setRequest(next, { ...req, items: again });
+      useQueueStore.getState().openDialog(next);
+      void refreshJob(next);
+    } catch (e) {
+      fail(e);
+    }
+    return;
+  }
   const items = buildItems(req.items.filter((i) => failedIds.has(i.id)).map((i) => i.id));
   if (items.length === 0) return;
   try {
@@ -229,6 +354,11 @@ export async function jobControl(jobId: string, action: 'pause' | 'resume' | 'ca
     await (action === 'pause' ? pauseJob : action === 'resume' ? resumeJob : cancelJob)(jobId);
   } catch (e) {
     fail(e);
+  }
+  // After the queue has been told: the image being upscaled then stops at its next tile too.
+  if (action === 'cancel') {
+    const req = useQueueStore.getState().requests[jobId];
+    if (req?.kind === 'upscaleBatch') cancelUpscaleBatch(req.items.map((i) => i.id));
   }
   void refreshJob(jobId);
 }

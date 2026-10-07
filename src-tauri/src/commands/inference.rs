@@ -16,7 +16,7 @@ fn status(
     state: Option<ModelState>,
     message: Option<String>,
 ) -> ModelStatus {
-    let path = st.models.locate(kind);
+    let path = st.locate_model(kind);
     let loaded = st.engine.loaded_info();
     let active = loaded.filter(|l| l.kind == kind);
     let state = state.unwrap_or(if path.is_none() {
@@ -52,7 +52,7 @@ pub fn run_removal(
     let RemoveOptions { model, device } = options;
     let started = Instant::now();
     let rec = st.images.get(id)?;
-    let model_path = st.models.require(model)?;
+    let model_path = st.require_model(model)?;
     let spec = model_manager::spec(model);
 
     if !st.engine.is_loaded(model, device) {

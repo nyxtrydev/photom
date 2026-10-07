@@ -3,3 +3,5 @@ mod batch;
 mod images;
 mod parity;
 mod pipeline;
+mod security;
+mod upscale_pipeline;

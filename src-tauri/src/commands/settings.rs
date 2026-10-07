@@ -38,6 +38,10 @@ pub fn persist(app: &AppHandle, st: &AppState, new: Settings) -> Result<Settings
     *st.settings
         .write()
         .map_err(|_| AppError::Internal("settings lock poisoned".into()))? = valid.clone();
+    st.installer.apply_overrides(
+        valid.models_catalog_url.as_deref(),
+        valid.models_extra_host.as_deref(),
+    )?;
     Ok(valid)
 }
 
@@ -100,7 +104,7 @@ pub fn get_app_info(app: AppHandle, state: State<'_, AppState>) -> Result<AppInf
         .into_iter()
         .map(|kind| {
             let sp = spec(kind);
-            let path = state.models.locate(kind);
+            let path = state.locate_model(kind);
             ModelInfo {
                 kind,
                 file_name: path

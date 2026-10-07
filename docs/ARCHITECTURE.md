@@ -83,3 +83,33 @@ IPC added: `export_png`, `remove_background_batch`, `cancel_job`, `pause_job`, `
 - **Licences:** `scripts/gen-licenses.mjs` builds `THIRD_PARTY_LICENSES.md` from `cargo tree` and `npm ls` (offline); it is bundled and viewable in Settings > About.
 - **Release tooling:** `scripts/bump-version.mjs` (one version across package.json, Cargo.toml and tauri.conf.json), `scripts/changelog.mjs` (conventional commits to CHANGELOG.md and release notes), both with unit tests in `scripts/lib/`. Workflows: `.github/workflows/ci.yml` (lint, tests, e2e on Windows, build + smoke on three OSes) and `release.yml` (tag -> signed installers + `latest.json`, then smoke-tests the published installers).
 - See `RELEASING.md` for signing, secrets and the release procedure.
+
+## Model Hub (Feature 0), Phase H0
+
+`src-tauri/src/model_hub/`: `config.rs` (URLs, allowed hosts, public key, limits), `manifest.rs` (parse, validate, Ed25519 verify, semver), `registry.rs` (`registry.json` persistence, `ModelState` machine), `hub.rs` (`ModelHub`: catalog + registry + running work, `model_path`, requirements), `commands.rs` (`models_list`, `model_catalog_status`, `model_check_requirements`). The hub lives in `AppState.hub`; feature services call `hub.model_path(id)` and get `ModelMissing` when the model is absent. Downloader, verifier, installer and session cache arrive in H1+. Events: `model:state {id, state}`.
+
+### Phase H1: downloads
+
+`downloader.rs` (`NetConfig`, client with redirect re-check, `download_url` with Range resume/retry/progress), `verifier.rs` (streaming SHA-256 + size, cancellable), `archive.rs` (sanitised zip extraction), `installer.rs` (`Installer`: queue with one worker, per-model `Control` for pause/cancel, mirror loop, atomic commit, catalog refresh). Commands: `model_install`, `model_pause`, `model_resume`, `model_cancel`, `models_refresh_catalog`. Events: `model:state`, `model:progress {id, downloadedBytes, totalBytes, speedBps, etaSeconds}` (<= every 250 ms), `model:error {id, code, message}`, `catalog:updated`. Tests use a `wiremock` server with a Range-aware responder; `cargo test --lib large_model -- --ignored` runs the 300 MB interruption check.
+
+### Phase H2: UI
+
+`types/models.ts` + `api/models.ts` (IPC and `model:*` events), `stores/hubStore.ts` (models, progress, catalog status; `requiredFor`), `app/modelActions.ts` (refresh, install/pause/resume/cancel, ready toast, feature openers), `hooks/useModelHub.ts` (mounted in `App`: load + subscribe), `hooks/useModelRequirement.ts` (phase, aggregated progress, actions). Components: `ModelInstallBanner` (+ `ModelGate`), `ModelDownloadChip`, `dialogs/settings/ModelsPanel`, `dialogs/ModelsWelcomeDialog`. Backend additions: `model_install_many`, `model_install_recommended`, `model_install_all`, `model_open_folder`, `modelsOnboardingDone` setting, `ModelInfo.sha256`. E2E: `e2e/models.spec.ts` against a simulated hub in `tauriMock.ts` (`hub` and `onboarding` options).
+
+### Phase H3: import, remove, update, advanced
+
+`Installer::import_file`, `Installer::remove`, `Installer::apply_overrides` (network settings behind an `RwLock`, client rebuilt on change), `session_cache::SessionCache`, `ModelHub::{add_unload_hook, invalidate, record, unregister}`, settings `modelsCatalogUrl` / `modelsExtraHost` with validators in `model_hub/config.rs`, commands `model_import_file` and `model_remove`. Frontend: Import file / Remove / Unverified badge per row, the consent prompt in `modelActions.importModelFromFile`, the **Advanced** section of the Models page.
+
+## Shadow Generator (Feature 2), Phase S0
+
+`src/canvas/shadow.ts` (types, limits, sanitising, offset, `shadowBounds`, `renderShadow`; pure), `shadowPreview.ts` (proxy computation and caching, owns the shadow canvas), `session.ts` (`alphaRev`, `alphaAt` for the composited mask), `compositor.ts` (draws background, shadow, subject inside the frame), `viewport.ts` (`fitViewportToRect`, `clampPanToRect`), `stores/editorStore.ts` (`shadow`, `frame`, `setShadow`/`commitShadow`/`resetShadow`, `propsTab`), `components/editor/ShadowPanel.tsx` + `ColorField.tsx`. Rust: `services/shadow.rs` (parameters, validation, bounds) and project format v2. Parity: `src-tauri/tests/fixtures/shadow_bounds.json` is asserted by both `shadow.test.ts` and `shadow_tests.rs`.
+
+## Shadow Generator, Phase S2 (reflection, presets, export)
+
+Export: `services/exporter.rs` `render_layers` builds the final alpha, asks `shadow_render::render` (a port of `renderShadow`, bit-compatible blur via `maskops`) for the shadow at scale 1, composites subject over shadow on the shadow's frame, then crops, resizes and adds the background. `ExportOptions.includeShadow` / `shadowLayer` select what is baked in and whether `name-photom-shadow.png` is also written; `ItemState.shadow` carries the editor's shadow object. Presets: `canvas/shadowPresets.ts` (built-ins, scale-to-image, capture) with custom ones stored in settings via `commands/shadow.rs`; UI in `components/editor/ShadowPresets.tsx`. Parity fixtures: `shadow_bounds.json` (canvas size) and `shadow_render.json` (pixels), both asserted by TypeScript and Rust.
+
+**Tests (Phase S4):** golden pictures in `src-tauri/tests/golden/` (`shadow_golden_tests.rs`, regenerate with `UPDATE_GOLDEN=1`), pixel parity fixture `shadow_render.json` (`UPDATE_SHADOW_FIXTURE=1`), canvas-size fixture `shadow_bounds.json`.
+
+## Image Upscaler, Phase U0
+
+Rust: `services/upscale.rs` (size and estimate maths, Standard upscaler, `UpscaleStore` for results awaiting a decision, `keep`/`discard`, loupe crop), `commands/upscale.rs` (`upscale_estimate`, `upscale_run` as a job, `upscale_accept`, `upscale_discard`, `upscale_loupe`, `upscale_requirements`), kept versions live in `ImageRegistry` and are written by `project_file.rs` (format 3). Frontend: `stores/upscaleStore.ts` (options per image, run state), `app/upscaleActions.ts`, `hooks/useUpscaleEstimate.ts`, `components/editor/UpscalePanel.tsx`, `UpscaleReview.tsx`, `UpscaleProgress.tsx`; job events for kind `upscale` are routed from `exportActions.ts`.

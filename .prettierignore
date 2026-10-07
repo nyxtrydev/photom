@@ -8,3 +8,5 @@ src-tauri/tests/fixtures
 test-results
 playwright-report
 src-tauri/vendor
+photom-feature-*.md
+src-tauri/src/model_hub/catalog.bundled.json

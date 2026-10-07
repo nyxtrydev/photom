@@ -53,7 +53,7 @@ pub fn run(app: &AppHandle) -> AppResult<String> {
             .first()
             .ok_or_else(|| AppError::Internal("smoke image was not imported".into()))?;
 
-        let model_path = st.models.require(ModelKind::Fast)?;
+        let model_path = st.require_model(ModelKind::Fast)?;
         let mask = run_removal(
             app,
             &st,

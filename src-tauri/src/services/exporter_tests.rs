@@ -506,3 +506,408 @@ fn full_item_export_writes_a_png_from_files_on_disk() {
     assert_eq!((back.width(), back.height()), (28, 28));
     assert!(back.color().has_alpha());
 }
+
+// ---- shadows ------------------------------------------------------------------------------
+
+fn shadow_state(shadow: serde_json::Value) -> ItemState {
+    ItemState {
+        shadow: Some(shadow),
+        ..no_refine()
+    }
+}
+
+/// A black, hard-edged drop shadow thrown 28 px down and right (40 px at 135 degrees).
+fn hard_drop() -> serde_json::Value {
+    serde_json::json!({"enabled": true, "autoExpand": true, "layers": [
+        {"type": "drop", "angle": 135, "distance": 40, "blur": 0, "opacity": 1, "color": "#000000"}]})
+}
+
+/// Subject in the lower right corner, so its shadow falls off the image.
+fn corner() -> (RgbaImage, Option<GrayImage>) {
+    fixture(Some((80, 60, 100, 80)))
+}
+
+fn layers(
+    state: &ItemState,
+    mask: Option<&GrayImage>,
+    src: &RgbaImage,
+    opts: &ExportOptions,
+) -> Rendered {
+    render_layers(
+        &RenderInput {
+            source: src,
+            mask,
+            state,
+            bg_image: None,
+        },
+        opts,
+    )
+    .unwrap()
+}
+
+#[test]
+fn an_enabled_shadow_is_baked_in_under_the_subject_and_grows_the_canvas() {
+    let (src, mask) = corner();
+    let out = render_with(
+        &shadow_state(hard_drop()),
+        mask.as_ref(),
+        &src,
+        &ExportOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(out.dimensions(), (129, 109)); // 100 + 28.3 and 80 + 28.3, rounded outward
+    assert_eq!(out.get_pixel(90, 70).0, [220, 110, 30, 255]); // subject untouched, on top
+    assert_eq!(out.get_pixel(115, 95).0, [0, 0, 0, 255]); // the shadow, past the image edge
+    assert_eq!(out.get_pixel(60, 20)[3], 0); // empty elsewhere
+}
+
+#[test]
+fn without_a_shadow_nothing_changes() {
+    let (src, mask) = corner();
+    for state in [
+        no_refine(),
+        shadow_state(serde_json::json!({"enabled": false, "layers": [{"type": "drop"}]})),
+        shadow_state(serde_json::json!({"enabled": true, "layers": []})),
+        shadow_state(serde_json::json!("junk")),
+    ] {
+        let r = layers(&state, mask.as_ref(), &src, &ExportOptions::default());
+        assert_eq!(r.image.dimensions(), (100, 80));
+        assert!(r.shadow.is_none());
+    }
+}
+
+#[test]
+fn include_shadow_off_keeps_the_canvas_but_leaves_the_shadow_out() {
+    let (src, mask) = corner();
+    let opts = ExportOptions {
+        include_shadow: false,
+        ..ExportOptions::default()
+    };
+    let r = layers(&shadow_state(hard_drop()), mask.as_ref(), &src, &opts);
+    // The shadow is off, and nothing else was asked for: exactly the old output.
+    assert_eq!(r.image.dimensions(), (100, 80));
+    assert!(r.shadow.is_none());
+}
+
+#[test]
+fn a_separate_shadow_layer_lines_up_with_the_main_picture() {
+    let (src, mask) = corner();
+    let opts = ExportOptions {
+        include_shadow: false,
+        shadow_layer: true,
+        ..ExportOptions::default()
+    };
+    let r = layers(&shadow_state(hard_drop()), mask.as_ref(), &src, &opts);
+    let shadow = r.shadow.expect("a separate layer");
+    assert_eq!(shadow.dimensions(), r.image.dimensions());
+    assert_eq!(r.image.dimensions(), (129, 109));
+    assert_eq!(r.image.get_pixel(115, 95)[3], 0); // not baked into the picture
+    assert_eq!(shadow.get_pixel(115, 95).0, [0, 0, 0, 255]); // it is on the layer
+    assert_eq!(shadow.get_pixel(90, 70)[3], 0); // the layer holds the shadow only
+    assert_eq!(r.image.get_pixel(90, 70)[3], 255);
+
+    // Both at once: baked in AND written separately.
+    let both = ExportOptions {
+        shadow_layer: true,
+        ..ExportOptions::default()
+    };
+    let r = layers(&shadow_state(hard_drop()), mask.as_ref(), &src, &both);
+    assert_eq!(r.image.get_pixel(115, 95).0, [0, 0, 0, 255]);
+    assert!(r.shadow.is_some());
+}
+
+#[test]
+fn the_shadow_layer_is_not_given_the_background() {
+    let (src, mask) = corner();
+    let mut state = shadow_state(hard_drop());
+    state.background = BackgroundState {
+        kind: BgKind::Solid,
+        color: "#ffffff".into(),
+        ..BackgroundState::default()
+    };
+    let opts = ExportOptions {
+        background: BackgroundMode::KeepSelected,
+        shadow_layer: true,
+        ..ExportOptions::default()
+    };
+    let r = layers(&state, mask.as_ref(), &src, &opts);
+    assert_eq!(r.image.get_pixel(5, 5).0, [255, 255, 255, 255]);
+    assert_eq!(r.shadow.unwrap().get_pixel(5, 5)[3], 0);
+}
+
+#[test]
+fn crop_to_subject_keeps_the_shadow() {
+    let (src, mask) = corner();
+    let opts = ExportOptions {
+        crop: CropOptions {
+            enabled: true,
+            padding: 0,
+        },
+        ..ExportOptions::default()
+    };
+    let with = layers(&shadow_state(hard_drop()), mask.as_ref(), &src, &opts);
+    // subject x 80..99, shadow to x 127 and y 107: a 48 x 48 box starting at (80, 60)
+    assert_eq!(with.image.dimensions(), (48, 48));
+    assert_eq!(with.image.get_pixel(0, 0).0, [220, 110, 30, 255]);
+    assert_eq!(with.image.get_pixel(40, 40).0, [0, 0, 0, 255]);
+    let without = layers(&no_refine(), mask.as_ref(), &src, &opts);
+    assert_eq!(without.image.dimensions(), (20, 20));
+}
+
+#[test]
+fn custom_size_scales_the_shadow_with_the_picture() {
+    let (src, mask) = corner();
+    let opts = ExportOptions {
+        size: SizeOptions {
+            mode: SizeMode::Custom,
+            width: 258,
+            height: 218,
+            max_side: None,
+        },
+        ..ExportOptions::default()
+    };
+    let out = layers(&shadow_state(hard_drop()), mask.as_ref(), &src, &opts).image;
+    assert_eq!(out.dimensions(), (258, 218));
+    assert_eq!(out.get_pixel(230, 190).0, [0, 0, 0, 255]); // (115, 95) at double size
+}
+
+#[test]
+fn a_reflection_carries_the_subjects_own_colours() {
+    let (src, mask) = fixture(Some((30, 20, 50, 40)));
+    let state = shadow_state(serde_json::json!({"enabled": true, "layers": [
+        {"type": "reflection", "gap": 0, "fade": 20, "blur": 0, "opacity": 1}]}));
+    let out = render_with(&state, mask.as_ref(), &src, &ExportOptions::default()).unwrap();
+    let p = out.get_pixel(40, 42);
+    assert_eq!(&p.0[..3], &[220, 110, 30]);
+    assert!(p[3] > 150, "{p:?}");
+}
+
+#[test]
+fn the_shadow_file_name_follows_the_picture() {
+    assert_eq!(shadow_file_name("a-photom.png"), "a-photom-shadow.png");
+    assert_eq!(
+        shadow_file_name("a-photom (2).png"),
+        "a-photom (2)-shadow.png"
+    );
+    assert_eq!(shadow_file_name("noext"), "noext-shadow.png");
+}
+
+#[test]
+fn exporting_an_item_writes_the_shadow_next_to_it_and_never_overwrites() {
+    let dir = tempfile::tempdir().unwrap();
+    let src_path = dir.path().join("shoe.png");
+    RgbImage::from_pixel(100, 80, Rgb([220, 110, 30]))
+        .save(&src_path)
+        .unwrap();
+    let mask_path = dir.path().join("mask.png");
+    GrayImage::from_fn(100, 80, |x, y| {
+        Luma([if x >= 80 && y >= 60 { 255 } else { 0 }])
+    })
+    .save(&mask_path)
+    .unwrap();
+    let rec = ImageRecord {
+        meta: ImageMeta {
+            id: "a".into(),
+            path: src_path.display().to_string(),
+            name: "shoe.png".into(),
+            width: 100,
+            height: 80,
+            format: "png".into(),
+            thumbnail_path: String::new(),
+        },
+        source: src_path,
+        mask_path: Some(mask_path),
+    };
+    let opts = ExportOptions {
+        folder: dir.path().join("out").display().to_string(),
+        shadow_layer: true,
+        ..ExportOptions::default()
+    };
+    let state = shadow_state(hard_drop());
+    let req = || ItemRequest {
+        rec: &rec,
+        state: &state,
+        options: &opts,
+        index: 1,
+        total: 1,
+        date: "2026-10-05",
+        pixel_limit: 100_000_000,
+    };
+    let (a, _) = export_item(&req()).unwrap();
+    assert!(a.output_path.ends_with("shoe-photom.png"));
+    assert!(a
+        .shadow_path
+        .as_deref()
+        .unwrap()
+        .ends_with("shoe-photom-shadow.png"));
+    let (b, _) = export_item(&req()).unwrap();
+    assert!(b.output_path.ends_with("shoe-photom (2).png"));
+    assert!(b
+        .shadow_path
+        .as_deref()
+        .unwrap()
+        .ends_with("shoe-photom (2)-shadow.png"));
+    let layer = image::open(a.shadow_path.unwrap()).unwrap().to_rgba8();
+    assert_eq!(layer.dimensions(), (a.width, a.height));
+    assert_eq!(layer.get_pixel(90, 70)[3], 0);
+    assert_eq!(layer.get_pixel(115, 95).0, [0, 0, 0, 255]);
+}
+
+// ---- apply-to-many check ------------------------------------------------------------------
+
+fn record_on_disk(dir: &std::path::Path, mask: Option<GrayImage>) -> ImageRecord {
+    let src_path = dir.join("p.png");
+    RgbImage::from_pixel(100, 80, Rgb([220, 110, 30]))
+        .save(&src_path)
+        .unwrap();
+    let mask_path = mask.map(|m| {
+        let p = dir.join("m.png");
+        m.save(&p).unwrap();
+        p
+    });
+    ImageRecord {
+        meta: ImageMeta {
+            id: "p".into(),
+            path: src_path.display().to_string(),
+            name: "p.png".into(),
+            width: 100,
+            height: 80,
+            format: "png".into(),
+            thumbnail_path: String::new(),
+        },
+        source: src_path,
+        mask_path,
+    }
+}
+
+fn corner_mask() -> GrayImage {
+    GrayImage::from_fn(100, 80, |x, y| {
+        Luma([if x >= 80 && y >= 60 { 255 } else { 0 }])
+    })
+}
+
+#[test]
+fn checking_a_shadow_reports_the_canvas_it_needs_without_rendering() {
+    let dir = tempfile::tempdir().unwrap();
+    let rec = record_on_disk(dir.path(), Some(corner_mask()));
+    let c = shadow_check(&rec, &shadow_state(hard_drop()), 100_000_000).unwrap();
+    assert_eq!((c.frame.w, c.frame.h), (129, 109));
+    assert_eq!((c.frame.x, c.frame.y), (0, 0));
+    assert_eq!(c.ground, 80.0); // the subject's lowest pixel
+    assert_eq!(c.id, "p");
+}
+
+#[test]
+fn checking_fails_clearly_without_a_cutout_subject_or_shadow() {
+    let dir = tempfile::tempdir().unwrap();
+    let none = record_on_disk(dir.path(), None);
+    let err = shadow_check(&none, &shadow_state(hard_drop()), 100_000_000).unwrap_err();
+    assert!(err.to_string().contains("Remove the background"), "{err}");
+
+    let dir2 = tempfile::tempdir().unwrap();
+    let empty = record_on_disk(dir2.path(), Some(GrayImage::new(100, 80)));
+    let err = shadow_check(&empty, &shadow_state(hard_drop()), 100_000_000).unwrap_err();
+    assert!(err.to_string().contains("No subject"), "{err}");
+
+    let dir3 = tempfile::tempdir().unwrap();
+    let ok = record_on_disk(dir3.path(), Some(corner_mask()));
+    let disabled =
+        shadow_state(serde_json::json!({"enabled": false, "layers": [{"type": "drop"}]}));
+    let err = shadow_check(&ok, &disabled, 100_000_000).unwrap_err();
+    assert!(err.to_string().contains("no shadow"), "{err}");
+    assert!(shadow_check(&ok, &no_refine(), 100_000_000).is_err());
+}
+
+// ---- rendering from a kept upscale ------------------------------------------------------------
+
+fn nearest_up(img: &RgbaImage, k: u32) -> RgbaImage {
+    RgbaImage::from_fn(img.width() * k, img.height() * k, |x, y| {
+        *img.get_pixel(x / k, y / k)
+    })
+}
+
+fn mean_diff(a: &RgbaImage, b: &RgbaImage) -> f64 {
+    assert_eq!(a.dimensions(), b.dimensions());
+    let mut sum = 0u64;
+    for (p, q) in a.pixels().zip(b.pixels()) {
+        for c in 0..4 {
+            sum += u64::from(p[c].abs_diff(q[c]));
+        }
+    }
+    sum as f64 / (a.width() as f64 * a.height() as f64 * 4.0)
+}
+
+/// An upscaled source with `detail_scale = k` must come out like the original at k times the size:
+/// the shadow, the feather and the brush edits all keep their look.
+#[test]
+fn rendering_from_an_upscaled_source_matches_the_original_at_k_times_the_size() {
+    let (src, mask) = corner();
+    let mask = mask.unwrap();
+    let state = ItemState {
+        refine: RefineParams {
+            threshold: 50.0,
+            feather: 2.0,
+            edge_shift: 1.0,
+        },
+        strokes: vec![crate::services::brush::Stroke {
+            mode: BrushMode::Erase,
+            size: 12.0,
+            hardness: 100.0,
+            points: vec![[90.0, 70.0, 1.0], [95.0, 72.0, 1.0]],
+        }],
+        shadow: Some(hard_drop()),
+        ..ItemState::default()
+    };
+    let opts = ExportOptions::default();
+    let base = render_with(&state, Some(&mask), &src, &opts).unwrap();
+
+    for k in [2u32, 4] {
+        let big_src = nearest_up(&src, k);
+        let big_mask = GrayImage::from_fn(mask.width() * k, mask.height() * k, |x, y| {
+            *mask.get_pixel(x / k, y / k)
+        });
+        let big_state = ItemState {
+            detail_scale: f64::from(k),
+            ..state.clone()
+        };
+        let big = render_with(&big_state, Some(&big_mask), &big_src, &opts).unwrap();
+        // Canvas: within a pixel or two of k times the original (rounding of the outward growth).
+        assert!(
+            big.width().abs_diff(base.width() * k) <= k
+                && big.height().abs_diff(base.height() * k) <= k,
+            "{k}x: {:?} vs {:?}",
+            big.dimensions(),
+            base.dimensions()
+        );
+        let want = nearest_up(&base, k);
+        let big = image::imageops::crop_imm(
+            &big,
+            0,
+            0,
+            want.width().min(big.width()),
+            want.height().min(big.height()),
+        )
+        .to_image();
+        let want = image::imageops::crop_imm(&want, 0, 0, big.width(), big.height()).to_image();
+        let d = mean_diff(&big, &want);
+        assert!(d < 4.0, "{k}x differs from the original by {d} per channel");
+        // The check is not vacuous: without the scale the same inputs come out clearly different.
+        let unscaled = render_with(&state, Some(&big_mask), &big_src, &opts).unwrap();
+        assert!(
+            unscaled.dimensions() != big.dimensions() || mean_diff(&unscaled, &big) > d + 1.0,
+            "{k}x: ignoring the scale should change the picture"
+        );
+    }
+}
+
+#[test]
+fn an_unscaled_state_renders_exactly_as_before() {
+    let (src, mask) = corner();
+    let mut a = shadow_state(hard_drop());
+    let plain = render_with(&a, mask.as_ref(), &src, &ExportOptions::default()).unwrap();
+    for ds in [0.0, 1.0, 0.5, f64::NAN] {
+        a.detail_scale = ds;
+        let r = render_with(&a, mask.as_ref(), &src, &ExportOptions::default()).unwrap();
+        assert_eq!(r.as_raw(), plain.as_raw(), "detail_scale {ds}");
+    }
+}

@@ -47,6 +47,7 @@ vi.mock('@/api/settings', () => ({
 import { pickExportFolder } from '@/api/dialogs';
 import { deleteExportPreset, exportPng, saveExportPreset } from '@/api/export';
 import { getSettings } from '@/api/settings';
+import { defaultShadow } from '@/canvas/shadow';
 import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useQueueStore } from '@/stores/queueStore';
@@ -218,6 +219,35 @@ describe('Export dialog', () => {
       filenameTemplate: '{index}_{name}',
       compression: 9,
     });
+  });
+
+  it('shows the shadow options only when an image in scope has a shadow, and sends them', async () => {
+    const { unmount } = open();
+    await screen.findByRole('radio', { name: 'Keep selected background' });
+    expect(screen.queryByRole('checkbox', { name: 'Include shadow' })).toBeNull();
+    unmount();
+
+    useEditorStore.getState().setShadow('a', () => defaultShadow());
+    open();
+    const include = await screen.findByRole('checkbox', { name: 'Include shadow' });
+    expect(include).toBeChecked(); // on by default
+    const layer = screen.getByRole('checkbox', { name: 'Shadow on separate layer' });
+    expect(layer).not.toBeChecked();
+    await userEvent.click(layer);
+    await userEvent.click(include);
+    await userEvent.click(screen.getByRole('button', { name: 'Export' }));
+    expect(sentOptions()).toMatchObject({ includeShadow: false, shadowLayer: true });
+    // The image's shadow travels with it, for the backend to render.
+    expect((sentItems()[0]!.state as { shadow: { enabled: boolean } }).shadow.enabled).toBe(true);
+  });
+
+  it("the shadow options follow the scope: another image's shadow counts for All images", async () => {
+    useEditorStore.getState().setShadow('b', () => defaultShadow());
+    open();
+    await screen.findByRole('radio', { name: 'Keep selected background' });
+    expect(screen.queryByRole('checkbox', { name: 'Include shadow' })).toBeNull();
+    await userEvent.click(screen.getByRole('radio', { name: /All images/ }));
+    expect(screen.getByRole('checkbox', { name: 'Include shadow' })).toBeVisible();
   });
 
   it('shows a live filename example and warns about images without a cut-out', async () => {

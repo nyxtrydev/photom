@@ -21,6 +21,10 @@ export interface ExportOptionsUi {
   compression: number;
   filenameTemplate: string;
   folder: string;
+  /** Bake each image's shadow into the exported picture. */
+  includeShadow: boolean;
+  /** Also write the shadow alone (`name-photom-shadow.png`) on a matching transparent canvas. */
+  shadowLayer: boolean;
 }
 
 /** What `export_png` receives (mirrors `ExportOptions` in services/exporter.rs). */
@@ -31,6 +35,8 @@ export interface ExportOptionsApi {
   compression: number;
   filenameTemplate: string;
   folder: string;
+  includeShadow: boolean;
+  shadowLayer: boolean;
 }
 
 export interface ExportPreset {
@@ -59,6 +65,8 @@ export const DEFAULT_EXPORT_OPTIONS: ExportOptionsUi = {
   compression: 6,
   filenameTemplate: DEFAULT_TEMPLATE,
   folder: '',
+  includeShadow: true,
+  shadowLayer: false,
 };
 
 export const BUILT_IN_PRESETS: ExportPreset[] = [
@@ -134,6 +142,8 @@ export function toApiOptions(o: ExportOptionsUi): ExportOptionsApi {
     compression: o.compression,
     filenameTemplate: o.filenameTemplate,
     folder: o.folder,
+    includeShadow: o.includeShadow,
+    shadowLayer: o.shadowLayer,
   };
 }
 
@@ -141,7 +151,7 @@ export function toApiOptions(o: ExportOptionsUi): ExportOptionsApi {
 
 export type ItemStatus = 'queued' | 'processing' | 'done' | 'failed' | 'cancelled';
 export type JobStatus = 'running' | 'paused' | 'done' | 'cancelled';
-export type JobKind = 'export' | 'removeBackground';
+export type JobKind = 'export' | 'removeBackground' | 'applyShadow' | 'upscale' | 'upscaleBatch';
 
 export interface JobItem {
   id: string;
@@ -176,7 +186,7 @@ export interface JobItemComplete extends JobEventBase {
   result: unknown;
 }
 
-export type HistoryKind = 'export' | 'project';
+export type HistoryKind = 'export' | 'project' | 'shadow' | 'upscale';
 export interface HistoryItem {
   id: string;
   kind: HistoryKind;

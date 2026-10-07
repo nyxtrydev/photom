@@ -12,13 +12,18 @@ export const DEFAULT_SETTINGS: Settings = {
   processing: 'cpu',
   shortcuts: {},
   exportPresets: [],
+  shadowPresets: [],
   defaultPreset: null,
   lastUsedFolders: {},
   undoDepth: 50,
   pixelLimitMp: 100,
+  upscaleMaxMp: 100,
   embedOriginals: true,
   exportConcurrency: 1,
   recentProjects: [],
+  modelsOnboardingDone: false,
+  modelsCatalogUrl: null,
+  modelsExtraHost: null,
 };
 
 interface SettingsState extends Settings {

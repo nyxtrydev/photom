@@ -1,4 +1,4 @@
-import { clampPan, clampZoom, fitViewport, stepZoom, zoomAt } from '@/canvas/viewport';
+import { clampPanToRect, clampZoom, fitViewportToRect, stepZoom, zoomAt } from '@/canvas/viewport';
 import { useEditorStore } from '@/stores/editorStore';
 
 function ctx() {
@@ -11,17 +11,15 @@ function ctx() {
 export function fitView() {
   const c = ctx();
   if (!c) return;
-  const { width, height } = c.s.source;
-  c.setViewport(c.id, fitViewport(width, height, c.viewSize.width, c.viewSize.height), true);
+  c.setViewport(c.id, fitViewportToRect(c.s.frame, c.viewSize.width, c.viewSize.height), true);
 }
 
 /** Zoom keeping the view centre fixed. */
 export function setZoom(zoom: number) {
   const c = ctx();
   if (!c?.s.viewport) return;
-  const { width, height } = c.s.source;
   const next = zoomAt(c.s.viewport, clampZoom(zoom), c.viewSize.width / 2, c.viewSize.height / 2);
-  c.setViewport(c.id, clampPan(next, width, height, c.viewSize.width, c.viewSize.height));
+  c.setViewport(c.id, clampPanToRect(next, c.s.frame, c.viewSize.width, c.viewSize.height));
 }
 
 export function zoomStep(direction: 1 | -1) {

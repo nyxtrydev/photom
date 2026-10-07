@@ -15,6 +15,8 @@ const persistedRefs = (s: ImageEditState) => [
   s.background,
   s.output,
   s.strokes,
+  s.shadow,
+  s.upscale,
   s.maskRev,
 ];
 

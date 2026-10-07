@@ -6,6 +6,7 @@ import { TitleBar } from '@/components/TitleBar';
 import { BatchProgressDialog } from '@/dialogs/BatchProgressDialog';
 import { ConfirmDialog } from '@/dialogs/ConfirmDialog';
 import { ExportDialog } from '@/dialogs/ExportDialog';
+import { ModelsWelcomeDialog } from '@/dialogs/ModelsWelcomeDialog';
 import { RecoveryDialog } from '@/dialogs/RecoveryDialog';
 import { SettingsDialog } from '@/dialogs/SettingsDialog';
 import {
@@ -17,6 +18,7 @@ import {
 } from '@/hooks/useProjectLifecycle';
 import { projectTitle } from '@/app/projectActions';
 import { useJobEvents } from '@/hooks/useJobEvents';
+import { useModelHub } from '@/hooks/useModelHub';
 import { useModelStatus } from '@/hooks/useModelStatus';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useApplyTheme } from '@/hooks/useTheme';
@@ -47,6 +49,7 @@ function CurrentScreen() {
 export function App() {
   useApplyTheme();
   useModelStatus();
+  useModelHub();
   useShortcuts();
   useStartup();
   useOpenFileEvents();
@@ -78,6 +81,7 @@ export function App() {
       <ExportDialog />
       <BatchProgressDialog />
       <RecoveryDialog />
+      <ModelsWelcomeDialog />
       <NoticeStack />
     </div>
   );

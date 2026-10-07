@@ -1,3 +1,4 @@
+import { ModelDownloadChip } from '@/components/ModelDownloadChip';
 import { strings } from '@/i18n/strings';
 import { useModelStore } from '@/stores/modelStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -43,6 +44,9 @@ export function StatusBar() {
         <span title={status?.message ?? undefined}>{text}</span>
       )}
       {loading && <span className="h-2.5 w-28 animate-pulse rounded-full bg-border" aria-hidden />}
+      <div className="ml-auto">
+        <ModelDownloadChip />
+      </div>
     </footer>
   );
 }

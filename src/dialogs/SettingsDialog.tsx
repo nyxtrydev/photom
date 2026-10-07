@@ -5,12 +5,14 @@ import { useRestoreFocus } from '@/hooks/useRestoreFocus';
 import { strings } from '@/i18n/strings';
 import { useUiStore } from '@/stores/uiStore';
 import { AboutPanel, ExportPanel, GeneralPanel, ModelPanel } from './settings/panels';
+import { ModelsPanel } from './settings/ModelsPanel';
 import { ShortcutsPanel } from './settings/ShortcutsPanel';
 import { ignoreToastClicks } from '@/components/dialogOutside';
 
 const tabs = [
   ['general', strings.settings.tabs.general, GeneralPanel],
   ['model', strings.settings.tabs.model, ModelPanel],
+  ['models', strings.settings.tabs.models, ModelsPanel],
   ['export', strings.settings.tabs.export, ExportPanel],
   ['shortcuts', strings.settings.tabs.shortcuts, ShortcutsPanel],
   ['about', strings.settings.tabs.about, AboutPanel],

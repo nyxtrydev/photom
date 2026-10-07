@@ -43,6 +43,8 @@ pub struct OpenedImage {
     pub meta: ImageMeta,
     pub state: Value,
     pub mask: Option<MaskResult>,
+    /// The kept upscaled version, if the project has one.
+    pub upscaled: Option<crate::services::upscale::KeptUpscale>,
 }
 
 #[derive(Debug, Clone, Serialize)]

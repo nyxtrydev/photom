@@ -14,6 +14,10 @@ const MAX_ITEMS: usize = 500;
 pub enum HistoryKind {
     Export,
     Project,
+    /// A shadow applied to many images at once.
+    Shadow,
+    /// An upscaled version that was kept.
+    Upscale,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

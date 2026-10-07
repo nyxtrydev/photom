@@ -53,7 +53,7 @@ impl RefineParams {
 const SOFT_WIDTH: f64 = 32.0;
 
 /// JS `Math.round` (ties toward +infinity), so results match the TypeScript implementation.
-fn js_round(v: f64) -> f64 {
+pub fn js_round(v: f64) -> f64 {
     (v + 0.5).floor()
 }
 

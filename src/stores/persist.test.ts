@@ -28,7 +28,15 @@ describe('persisted editor state', () => {
 
   it('does not persist history, viewport or live-drag bookkeeping', () => {
     const keys = Object.keys(toPersisted(newImageState(1, 1)));
-    expect(keys.sort()).toEqual(['background', 'output', 'refine', 'split', 'strokes']);
+    expect(keys.sort()).toEqual([
+      'background',
+      'output',
+      'refine',
+      'shadow',
+      'split',
+      'strokes',
+      'upscale',
+    ]);
   });
 
   it('survives garbage without throwing and falls back to defaults', () => {

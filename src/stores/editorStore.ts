@@ -2,14 +2,17 @@ import { create } from 'zustand';
 import type { Stroke } from '@/canvas/brush';
 import { DEFAULT_BRUSH } from '@/canvas/brush';
 import { DEFAULT_REFINE, type RefineParams } from '@/canvas/maskOps';
-import type { Viewport } from '@/canvas/viewport';
-import type { BackgroundImage, MaskResult } from '@/types/dto';
+import { defaultShadow, type ShadowState } from '@/canvas/shadow';
+import type { FrameRect, Viewport } from '@/canvas/viewport';
+import type { BackgroundImage, KeptUpscale, MaskResult } from '@/types/dto';
 import { useSettingsStore } from './settingsStore';
 
 export type Tool = 'move' | 'keep' | 'erase' | 'pan' | 'zoom';
 export type BackgroundKind = 'transparent' | 'solid' | 'image';
 export type FitMode = 'cover' | 'contain' | 'stretch';
 export type CompareMode = 'split' | 'after';
+/** Tabs of the Properties panel (more arrive with later features). */
+export type PropsTab = 'background' | 'shadow' | 'upscale';
 
 export interface BackgroundState {
   kind: BackgroundKind;
@@ -31,6 +34,7 @@ export type Command =
   | { type: 'refine'; before: RefineParams; after: RefineParams }
   | { type: 'background'; before: BackgroundState; after: BackgroundState }
   | { type: 'output'; before: OutputState; after: OutputState }
+  | { type: 'shadow'; before: ShadowState | null; after: ShadowState | null }
   | { type: 'rerun'; before: MaskResult | null; after: MaskResult };
 
 export interface ImageEditState {
@@ -39,6 +43,15 @@ export interface ImageEditState {
   refine: RefineParams;
   background: BackgroundState;
   output: OutputState;
+  /** Shadow settings; null until the user first opens the Shadow tab and enables it. */
+  shadow: ShadowState | null;
+  /** The kept upscaled version (a derived asset stored with the project), or null. */
+  upscale: KeptUpscale | null;
+  /**
+   * The editing frame in source px: the image, plus the margin a shadow needs when Auto expand is
+   * on. Derived from the mask and shadow by the canvas; never saved.
+   */
+  frame: FrameRect;
   /** Brush edits as stroke deltas (not bitmaps). */
   strokes: Stroke[];
   /** Bumped whenever `strokes` changes other than by live painting. */
@@ -53,6 +66,8 @@ export interface ImageEditState {
   /** True while the view tracks "fit to screen" (cleared by manual zoom/pan). */
   fit: boolean;
   pendingRefineBefore: RefineParams | null;
+  /** Shadow settings before a slider drag started (one undo step per drag). */
+  pendingShadow: { before: ShadowState | null } | null;
   lastMergeAt: number;
 }
 
@@ -70,6 +85,9 @@ export const newImageState = (width: number, height: number): ImageEditState => 
   refine: { ...DEFAULT_REFINE },
   background: { ...DEFAULT_BACKGROUND },
   output: { width, height, lockRatio: true, cropToSubject: false },
+  shadow: null,
+  upscale: null,
+  frame: { x: 0, y: 0, w: width, h: height },
   strokes: [],
   editRev: 0,
   maskRev: 0,
@@ -79,6 +97,7 @@ export const newImageState = (width: number, height: number): ImageEditState => 
   viewport: null,
   fit: true,
   pendingRefineBefore: null,
+  pendingShadow: null,
   lastMergeAt: 0,
 });
 
@@ -87,6 +106,13 @@ interface EditorState {
   tool: Tool;
   brush: { size: number; hardness: number };
   compare: CompareMode;
+  propsTab: PropsTab;
+  /** Show the ground line and light handles on the canvas while the Shadow tab is open. */
+  showShadowGuides: boolean;
+  /** Debug view: show only the shadow on a neutral grey. */
+  shadowOnly: boolean;
+  setShadowOnly: (on: boolean) => void;
+  setShowShadowGuides: (on: boolean) => void;
   showChecker: boolean;
   recentColors: string[];
   states: Record<string, ImageEditState>;
@@ -96,6 +122,9 @@ interface EditorState {
   setTool: (tool: Tool) => void;
   setBrush: (patch: Partial<{ size: number; hardness: number }>) => void;
   setCompare: (mode: CompareMode) => void;
+  setPropsTab: (tab: PropsTab) => void;
+  /** Record the kept upscaled version (or clear it). Not an undo step: it changes a file. */
+  setUpscale: (id: string, upscale: KeptUpscale | null) => void;
   toggleChecker: () => void;
   addRecentColor: (hex: string) => void;
 
@@ -112,6 +141,18 @@ interface EditorState {
   resetRefine: (id: string) => void;
   setBackground: (id: string, patch: Partial<BackgroundState>) => void;
   setOutput: (id: string, patch: Partial<OutputState>) => void;
+  /**
+   * Change the shadow settings. `live` updates (slider drags) are coalesced into one undo step by
+   * `commitShadow`; everything else (enable, add/remove/hide a layer, reset) is its own step.
+   */
+  setShadow: (
+    id: string,
+    update: (cur: ShadowState | null) => ShadowState | null,
+    live?: boolean,
+  ) => void;
+  commitShadow: (id: string) => void;
+  resetShadow: (id: string) => void;
+  setFrame: (id: string, frame: FrameRect) => void;
   addStroke: (id: string, stroke: Stroke) => void;
   clearEdits: (id: string) => void;
   recordRerun: (id: string, before: MaskResult | null, after: MaskResult) => void;
@@ -149,6 +190,16 @@ function pushOrMerge(
   return push(s, cmd, now);
 }
 
+/** Turn a finished slider drag into one undo step (nothing if the value ended where it began). */
+function closePendingShadow(s: ImageEditState): ImageEditState {
+  const p = s.pendingShadow;
+  if (!p) return s;
+  const cleared = { ...s, pendingShadow: null };
+  return p.before === s.shadow
+    ? cleared
+    : push(cleared, { type: 'shadow', before: p.before, after: s.shadow });
+}
+
 /** Apply a command in the given direction on state only (side effects live in actions). */
 function apply(s: ImageEditState, cmd: Command, dir: 'undo' | 'redo'): ImageEditState {
   const undo = dir === 'undo';
@@ -167,6 +218,8 @@ function apply(s: ImageEditState, cmd: Command, dir: 'undo' | 'redo'): ImageEdit
       return { ...s, background: undo ? cmd.before : cmd.after };
     case 'output':
       return { ...s, output: undo ? cmd.before : cmd.after };
+    case 'shadow':
+      return { ...s, shadow: undo ? cmd.before : cmd.after };
     case 'rerun':
       return { ...s, maskRev: s.maskRev + 1 };
   }
@@ -177,6 +230,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   tool: 'move',
   brush: { ...DEFAULT_BRUSH },
   compare: 'split',
+  propsTab: 'background',
+  showShadowGuides: true,
+  shadowOnly: false,
+  setShadowOnly: (shadowOnly) => set({ shadowOnly }),
+  setShowShadowGuides: (showShadowGuides) => set({ showShadowGuides }),
   showChecker: true,
   recentColors: [],
   states: {},
@@ -186,6 +244,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setTool: (tool) => set({ tool }),
   setBrush: (patch) => set((st) => ({ brush: { ...st.brush, ...patch } })),
   setCompare: (compare) => set({ compare }),
+  setPropsTab: (propsTab) => set({ propsTab }),
+  setUpscale: (id, upscale) =>
+    set((st) => ({ states: withState(st.states, id, (s) => ({ ...s, upscale })) })),
   toggleChecker: () => set((st) => ({ showChecker: !st.showChecker })),
   addRecentColor: (hex) =>
     set((st) => ({
@@ -262,6 +323,40 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         return pushOrMerge({ ...s, output: after }, { type: 'output', before: s.output, after });
       }),
     })),
+  setShadow: (id, update, live = false) =>
+    set((st) => ({
+      states: withState(st.states, id, (s) => {
+        const after = update(s.shadow);
+        if (live) {
+          return {
+            ...s,
+            shadow: after,
+            pendingShadow: s.pendingShadow ?? { before: s.shadow },
+          };
+        }
+        // A discrete edit closes any drag in progress first, so history stays in order.
+        const closed = closePendingShadow(s);
+        return push({ ...closed, shadow: after }, { type: 'shadow', before: closed.shadow, after });
+      }),
+    })),
+  commitShadow: (id) => set((st) => ({ states: withState(st.states, id, closePendingShadow) })),
+  resetShadow: (id) =>
+    set((st) => ({
+      states: withState(st.states, id, (s) => {
+        const closed = closePendingShadow(s);
+        const after = defaultShadow();
+        return push({ ...closed, shadow: after }, { type: 'shadow', before: closed.shadow, after });
+      }),
+    })),
+  setFrame: (id, frame) =>
+    set((st) => ({
+      states: withState(st.states, id, (s) => {
+        const f = s.frame;
+        return f.x === frame.x && f.y === frame.y && f.w === frame.w && f.h === frame.h
+          ? s
+          : { ...s, frame };
+      }),
+    })),
   addStroke: (id, stroke) =>
     set((st) => ({
       states: withState(st.states, id, (s) =>
@@ -296,6 +391,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         undo: cur.undo.slice(0, -1),
         redo: [...cur.redo, cmd],
         pendingRefineBefore: null,
+        pendingShadow: null,
       })),
     }));
     return cmd;
@@ -310,6 +406,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         redo: cur.redo.slice(0, -1),
         undo: [...cur.undo, cmd],
         pendingRefineBefore: null,
+        pendingShadow: null,
       })),
     }));
     return cmd;

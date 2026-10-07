@@ -62,7 +62,11 @@ export function hydrate(opened: OpenedProject, path: string | null, dirty: boole
   const states: Record<string, ImageEditState> = {};
   const masks: Record<string, MaskResult> = {};
   for (const img of opened.images) {
-    states[img.meta.id] = fromPersisted(img.state, img.meta.width, img.meta.height);
+    states[img.meta.id] = {
+      ...fromPersisted(img.state, img.meta.width, img.meta.height),
+      // The file is the truth: a state.json entry without its picture is ignored.
+      upscale: img.upscaled ?? null,
+    };
     if (img.mask) masks[img.meta.id] = img.mask;
   }
   const ids = opened.images.map((i) => i.meta.id);

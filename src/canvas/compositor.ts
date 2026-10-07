@@ -1,6 +1,6 @@
 import type { BackgroundKind, CompareMode, FitMode } from '@/stores/editorStore';
 import type { MaskSession } from './session';
-import type { Viewport } from './viewport';
+import type { FrameRect, Viewport } from './viewport';
 
 export interface RenderColors {
   checkerA: string;
@@ -17,12 +17,21 @@ export interface RenderOptions {
   /** Source size; the image is always laid out in source pixels. */
   srcW: number;
   srcH: number;
+  /** The editing frame in source px (the image plus any shadow margin). */
+  frame: FrameRect;
+  /** Shadow bitmap covering `frame`, drawn under the subject. */
+  shadow: HTMLCanvasElement | null;
+  /** Debug view: only the shadow, on a neutral grey (no subject, no background, no Before/After). */
+  shadowOnly?: boolean;
   split: number;
   compare: CompareMode;
   showChecker: boolean;
   background: { kind: BackgroundKind; color: string; image: ImageBitmap | null; fit: FitMode };
   colors: RenderColors;
 }
+
+/** The shadow-only view sits on mid-light grey so both dark and light shadows read clearly. */
+export const SHADOW_ONLY_BACKDROP = '#d4d4d4';
 
 let patternCache: { key: string; pattern: CanvasPattern } | null = null;
 
@@ -99,33 +108,51 @@ export function render(ctx: CanvasRenderingContext2D, o: RenderOptions) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
+  // Source pixel (0,0) sits at (panX, panY); the frame may extend to negative source coordinates.
   const x = o.vp.panX;
   const y = o.vp.panY;
   const w = o.srcW * o.vp.zoom;
   const h = o.srcH * o.vp.zoom;
-  const splitX = x + w * o.split;
+  const fx = x + o.frame.x * o.vp.zoom;
+  const fy = y + o.frame.y * o.vp.zoom;
+  const fw = o.frame.w * o.vp.zoom;
+  const fh = o.frame.h * o.vp.zoom;
+  const splitX = fx + fw * o.split;
 
   const region = (x0: number, x1: number, draw: () => void) => {
     if (x1 <= x0) return;
     ctx.save();
     ctx.beginPath();
-    ctx.rect(x0, y, x1 - x0, h);
+    ctx.rect(x0, fy, x1 - x0, fh);
     ctx.clip();
     draw();
     ctx.restore();
   };
 
+  if (o.shadowOnly) {
+    region(fx, fx + fw, () => {
+      ctx.fillStyle = SHADOW_ONLY_BACKDROP;
+      ctx.fillRect(fx, fy, fw, fh);
+      if (o.shadow) ctx.drawImage(o.shadow, fx, fy, fw, fh);
+    });
+    ctx.strokeStyle = o.colors.border;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(fx - 0.5, fy - 0.5, fw + 1, fh + 1);
+    return;
+  }
+
   const s = o.session;
-  const afterStart = o.compare === 'after' ? x : splitX;
-  region(afterStart, x + w, () => {
-    drawBackground(ctx, o, x, y, w, h);
+  const afterStart = o.compare === 'after' ? fx : splitX;
+  region(afterStart, fx + fw, () => {
+    drawBackground(ctx, o, fx, fy, fw, fh);
+    if (o.shadow) ctx.drawImage(o.shadow, fx, fy, fw, fh);
     if (s) ctx.drawImage(s.afterCanvas, x, y, w, h);
   });
   if (o.compare === 'split' && s) {
-    region(x, splitX, () => ctx.drawImage(s.originalCanvas, x, y, w, h));
+    region(fx, splitX, () => ctx.drawImage(s.originalCanvas, x, y, w, h));
   }
 
   ctx.strokeStyle = o.colors.border;
   ctx.lineWidth = 1;
-  ctx.strokeRect(x - 0.5, y - 0.5, w + 1, h + 1);
+  ctx.strokeRect(fx - 0.5, fy - 0.5, fw + 1, fh + 1);
 }

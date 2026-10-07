@@ -3,5 +3,7 @@ pub mod image;
 pub mod inference;
 pub mod project;
 pub mod settings;
+pub mod shadow;
 pub mod system;
 pub mod updates;
+pub mod upscale;

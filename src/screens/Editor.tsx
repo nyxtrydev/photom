@@ -4,6 +4,9 @@ import { importPaths } from '@/app/actions';
 import { EditorCanvas } from '@/canvas/EditorCanvas';
 import { EditorStatusBar } from '@/components/editor/EditorStatusBar';
 import { Filmstrip } from '@/components/editor/Filmstrip';
+import { UpscaleReview } from '@/components/editor/UpscaleReview';
+import { UpscaleProgress } from '@/components/editor/UpscaleProgress';
+import { useUpscaleStore } from '@/stores/upscaleStore';
 import { PropertiesPanel } from '@/components/editor/PropertiesPanel';
 import { ToolRail } from '@/components/editor/ToolRail';
 import { Toolbar } from '@/components/editor/Toolbar';
@@ -16,6 +19,7 @@ export function Editor() {
   useFileDrop();
   const activeId = useEditorStore((s) => s.activeId);
   const image = useProjectStore((s) => s.images.find((i) => i.id === activeId));
+  const run = useUpscaleStore((s) => (activeId ? s.runs[activeId] : undefined));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -25,8 +29,17 @@ export function Editor() {
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 p-4">
             <div className="h-full w-full overflow-hidden rounded-md border border-border">
-              {image ? (
-                <EditorCanvas key={image.id} image={image} />
+              {image && run?.phase === 'review' ? (
+                <UpscaleReview
+                  key={`${image.id}:${run.pending.path}`}
+                  imageId={image.id}
+                  pending={run.pending}
+                />
+              ) : image ? (
+                <div className="relative h-full w-full">
+                  <EditorCanvas key={image.id} image={image} />
+                  {run?.phase === 'running' && <UpscaleProgress imageId={image.id} />}
+                </div>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
                   <ImagePlus size={40} className="text-fg-muted" aria-hidden />

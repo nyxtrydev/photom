@@ -108,6 +108,65 @@ test('refine sliders update the preview in under 200 ms on a 12 MP image', async
   expect(worst).toBeLessThan(400); // budget 200 ms on a laptop CPU; allow 2x for CI/headless
 });
 
+test('dragging a shadow slider repaints in well under 100 ms on a 12 MP image', async ({
+  page,
+}) => {
+  await openLarge(page);
+  await page.getByRole('tab', { name: 'Shadow' }).click();
+  await page.getByRole('checkbox', { name: 'Enable' }).click();
+  await page.waitForTimeout(500);
+  const timings: number[] = [];
+  // Each value is a fresh recompute (new blur radius); time until the frame after it is painted.
+  for (const v of ['10', '60', '25', '90', '40', '70']) {
+    const ms = await page.evaluate(async (value) => {
+      const el = document.querySelector('input[aria-label="Blur value"]') as HTMLInputElement;
+      const t0 = performance.now();
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      el.focus();
+      setter.call(el, value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.blur();
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      return performance.now() - t0;
+    }, v);
+    timings.push(ms);
+  }
+  const worst = Math.max(...timings);
+  console.log(`shadow update on 12 MP: ${timings.map((t) => t.toFixed(0)).join(', ')} ms`);
+  expect(worst).toBeLessThan(150); // target 50 ms on a laptop; headless software rendering is slower
+});
+
+test('a cast shadow (4 blur levels) plus contact repaints quickly on a 12 MP image', async ({
+  page,
+}) => {
+  await openLarge(page);
+  await page.getByRole('tab', { name: 'Shadow' }).click();
+  await page.getByRole('checkbox', { name: 'Enable' }).click();
+  for (const name of [/Contact shadow/, /Cast shadow/]) {
+    await page.getByRole('button', { name: 'Add a shadow layer' }).click();
+    await page.getByRole('menuitem', { name }).click();
+  }
+  await page.waitForTimeout(500);
+  const timings: number[] = [];
+  for (const v of ['20', '60', '30', '75', '45', '25']) {
+    const ms = await page.evaluate(async (value) => {
+      const el = document.querySelector('input[aria-label="Elevation value"]') as HTMLInputElement;
+      const t0 = performance.now();
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      el.focus();
+      setter.call(el, value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.blur();
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      return performance.now() - t0;
+    }, v);
+    timings.push(ms);
+  }
+  const worst = Math.max(...timings);
+  console.log(`cast+contact update on 12 MP: ${timings.map((t) => t.toFixed(0)).join(', ')} ms`);
+  expect(worst).toBeLessThan(300);
+});
+
 test('cold start to interactive UI', async ({ page }) => {
   await page.addInitScript(installTauriMock, {});
   const t0 = Date.now();

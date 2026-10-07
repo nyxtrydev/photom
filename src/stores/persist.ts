@@ -1,4 +1,5 @@
 import { BRUSH_LIMITS, type Stroke } from '@/canvas/brush';
+import { sanitizeShadow, shadowToPersisted } from '@/canvas/shadow';
 import { DEFAULT_REFINE, REFINE_LIMITS, type RefineParams } from '@/canvas/maskOps';
 import type { BackgroundImage } from '@/types/dto';
 import {
@@ -116,6 +117,16 @@ export function toPersisted(s: ImageEditState) {
     output: s.output,
     strokes: s.strokes,
     split: s.split,
+    shadow: shadowToPersisted(s.shadow),
+    // The parameters of the kept upscale; the picture itself is a derived asset in the project.
+    upscale: s.upscale
+      ? {
+          scale: s.upscale.scale,
+          width: s.upscale.width,
+          height: s.upscale.height,
+          engine: s.upscale.engine,
+        }
+      : null,
   };
 }
 
@@ -130,5 +141,7 @@ export function fromPersisted(saved: unknown, width: number, height: number): Im
     output: sanitizeOutput(saved.output, width, height),
     strokes: sanitizeStrokes(saved.strokes),
     split: num(saved.split, 0.5, 0, 1),
+    // Projects saved before shadows existed have no `shadow`; they open exactly as before.
+    shadow: sanitizeShadow(saved.shadow),
   };
 }

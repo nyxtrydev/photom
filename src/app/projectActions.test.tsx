@@ -78,7 +78,7 @@ const opened = (over: Partial<OpenedProject> = {}): OpenedProject => ({
     activeId: 'b',
   },
   images: [
-    { meta: meta('a'), state: {}, mask: null },
+    { meta: meta('a'), state: {}, mask: null, upscaled: null },
     {
       meta: meta('b'),
       state: {
@@ -94,6 +94,7 @@ const opened = (over: Partial<OpenedProject> = {}): OpenedProject => ({
         durationMs: 0,
         device: 'cpu',
       },
+      upscaled: null,
     },
   ],
   warnings: [],
@@ -202,8 +203,10 @@ describe('saving', () => {
       'background',
       'output',
       'refine',
+      'shadow',
       'split',
       'strokes',
+      'upscale',
     ]);
     expect((state.refine as { threshold: number }).threshold).toBe(77);
   });

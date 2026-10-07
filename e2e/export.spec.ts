@@ -240,3 +240,35 @@ test('presets: save a custom preset, find it in the toolbar dropdown, and it app
   await expect(dialog(page).getByRole('checkbox', { name: 'Crop to subject' })).toBeChecked();
   await expect(dialog(page).getByRole('combobox', { name: 'Preset' })).toHaveValue(/preset-1/);
 });
+
+test('the Export dialog offers Include shadow / Shadow on separate layer when a shadow is on', async ({
+  page,
+}) => {
+  await start(page);
+  await openImages(page);
+  await page.getByRole('button', { name: 'Remove BG' }).click();
+  await page.waitForTimeout(300);
+
+  await page.getByRole('button', { name: 'Export PNG', exact: true }).click();
+  let d = dialog(page);
+  await expect(d.getByRole('checkbox', { name: 'Include shadow' })).toHaveCount(0);
+  await d.getByRole('button', { name: 'Cancel' }).click();
+
+  await page.getByRole('tab', { name: 'Shadow' }).click();
+  await page.getByRole('checkbox', { name: 'Enable' }).click();
+  await page.getByRole('button', { name: 'Export PNG', exact: true }).click();
+  d = dialog(page);
+  await expect(d.getByRole('checkbox', { name: 'Include shadow' })).toBeChecked();
+  await d.getByRole('textbox', { name: 'Folder' }).fill('/exports');
+  await d.getByRole('checkbox', { name: 'Shadow on separate layer' }).click();
+  await d.getByRole('button', { name: 'Export', exact: true }).click();
+  await expect(dialog(page)).toBeHidden();
+
+  const sent = (await mock(page)).exports[0]!;
+  expect(sent.options).toMatchObject({ includeShadow: true, shadowLayer: true });
+  const state = sent.items[0]!.state as {
+    shadow: { enabled: boolean; layers: { type: string }[] };
+  };
+  expect(state.shadow.enabled).toBe(true);
+  expect(state.shadow.layers[0]).toMatchObject({ type: 'drop' });
+});

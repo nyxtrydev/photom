@@ -3,6 +3,8 @@
   "bundle": {
     "resources": {
       "resources/models/isnet-general-use-fp16.onnx": "resources/models/isnet-general-use-fp16.onnx",
+      "resources/models/realesrgan-x2.onnx": "resources/models/realesrgan-x2.onnx",
+      "resources/models/realesrgan-x4.onnx": "resources/models/realesrgan-x4.onnx",
       "resources/THIRD_PARTY_LICENSES.md": "resources/THIRD_PARTY_LICENSES.md"
     }
   }

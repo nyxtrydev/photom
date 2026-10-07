@@ -54,7 +54,14 @@ export function BatchProgressDialog() {
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   const failed = snap?.items.filter((i) => i.status === 'failed').length ?? 0;
   const ok = snap?.items.filter((i) => i.status === 'done').length ?? 0;
-  const title = snap?.kind === 'removeBackground' ? b.removeTitle : b.exportTitle;
+  const title =
+    snap?.kind === 'removeBackground'
+      ? b.removeTitle
+      : snap?.kind === 'applyShadow'
+        ? b.shadowTitle
+        : snap?.kind === 'upscaleBatch'
+          ? b.upscaleTitle
+          : b.exportTitle;
 
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && openDialog(null)}>

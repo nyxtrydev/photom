@@ -19,3 +19,19 @@ export async function loadCacheBitmap(path: string): Promise<ImageBitmap> {
   const bytes = await callBinary('read_cache_file', { path });
   return createImageBitmap(new Blob([bytes]));
 }
+
+/** Like `loadCacheBitmap`, but decoded straight to at most `maxSide` pixels (big upscaled results). */
+export async function loadCacheBitmapScaled(path: string, maxSide: number): Promise<ImageBitmap> {
+  const bytes = await callBinary('read_cache_file', { path });
+  const blob = new Blob([bytes]);
+  const full = await createImageBitmap(blob);
+  const k = Math.min(1, maxSide / Math.max(full.width, full.height));
+  if (k >= 1) return full;
+  const small = await createImageBitmap(full, {
+    resizeWidth: Math.max(1, Math.round(full.width * k)),
+    resizeHeight: Math.max(1, Math.round(full.height * k)),
+    resizeQuality: 'high',
+  });
+  full.close();
+  return small;
+}

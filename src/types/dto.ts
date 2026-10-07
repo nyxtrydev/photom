@@ -99,13 +99,18 @@ export interface Settings {
   processing: DevicePref;
   shortcuts: Record<string, string[]>;
   exportPresets: unknown[];
+  shadowPresets: unknown[];
   defaultPreset: string | null;
   lastUsedFolders: Record<string, string>;
   undoDepth: number;
   pixelLimitMp: number;
+  upscaleMaxMp: number;
   embedOriginals: boolean;
   exportConcurrency: number;
   recentProjects: RecentProject[];
+  modelsOnboardingDone: boolean;
+  modelsCatalogUrl: string | null;
+  modelsExtraHost: string | null;
 }
 
 export interface ProjectImagePayload {
@@ -131,10 +136,23 @@ export interface ProjectMeta {
   activeId: string | null;
 }
 
+export type UpscaleEngine = 'standard' | 'ai';
+
+/** A kept upscaled version (mirrors `KeptUpscale` in services/upscale.rs). */
+export interface KeptUpscale {
+  path: string;
+  width: number;
+  height: number;
+  /** null = an exact target size rather than 2x / 4x. */
+  scale: 2 | 4 | null;
+  engine: UpscaleEngine;
+}
+
 export interface OpenedImage {
   meta: ImageMeta;
   state: unknown;
   mask: MaskResult | null;
+  upscaled: KeptUpscale | null;
 }
 
 export interface OpenedProject {

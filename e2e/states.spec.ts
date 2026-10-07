@@ -72,7 +72,9 @@ test.describe('error states', () => {
     await toast.getByText('Show details').click();
     await expect(toast.getByText(/Photom works offline/)).toBeVisible();
     await toast.getByRole('button', { name: 'Open model settings' }).click();
-    await expect(page.getByRole('tab', { name: 'Model', selected: true })).toBeVisible();
+    await expect(
+      page.getByRole('tab', { name: 'Background removal', selected: true }),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Import model file...' })).toBeVisible();
   });
 

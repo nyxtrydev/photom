@@ -195,7 +195,8 @@ pub async fn reset_session(state: State<'_, AppState>) -> Result<(), AppError> {
     let st = state.inner().clone();
     tokio::task::spawn_blocking(move || {
         st.images.clear()?;
-        for d in ["thumbs", "masks", "work", "bg", "projects"] {
+        st.upscale.clear()?;
+        for d in ["thumbs", "masks", "work", "bg", "projects", "upscale"] {
             let _ = std::fs::remove_dir_all(st.cache_dir.join(d));
         }
         Ok(())

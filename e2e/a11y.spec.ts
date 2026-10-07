@@ -92,7 +92,14 @@ for (const theme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Close' }).click();
 
       await page.getByRole('button', { name: 'Settings' }).first().click();
-      for (const tab of ['General', 'Model', 'Export', 'Shortcuts', 'About']) {
+      for (const tab of [
+        'General',
+        'Background removal',
+        'Models',
+        'Export',
+        'Shortcuts',
+        'About',
+      ]) {
         await page.getByRole('tab', { name: tab }).click();
         await audit(page, `Settings: ${tab}`);
       }
@@ -101,6 +108,119 @@ for (const theme of ['light', 'dark'] as const) {
       await page.keyboard.press('Control+n'); // dirty -> confirmation
       await expect(page.getByText('Unsaved changes')).toBeVisible();
       await audit(page, 'Confirm dialog');
+    });
+
+    test('Shadow tab', async ({ page }) => {
+      await start(page, theme);
+      await openEditor(page);
+      await page.getByRole('tab', { name: 'Shadow' }).click();
+      await audit(page, 'Shadow tab (needs a cut-out)');
+      await page.getByRole('button', { name: 'Remove BG' }).first().click();
+      await page.waitForTimeout(300);
+      await page.getByRole('checkbox', { name: 'Enable' }).click();
+      await page.getByRole('button', { name: /Add a shadow layer/ }).click();
+      await page.getByRole('menuitem', { name: /Cast shadow/ }).click();
+      await page.waitForTimeout(250);
+      await audit(page, 'Shadow tab (two layers)');
+      await page.getByRole('checkbox', { name: 'Enable' }).click();
+      await audit(page, 'Shadow tab (disabled)');
+    });
+
+    test('Upscale tab: controls, estimate, result review and kept version', async ({ page }) => {
+      await start(page, theme);
+      await openEditor(page);
+      await page.getByRole('tab', { name: 'Upscale' }).click();
+      await expect(page.getByTestId('upscale-estimate')).toContainText('Output');
+      await audit(page, 'Upscale tab');
+      await page.getByRole('radio', { name: 'Custom target size' }).click();
+      await audit(page, 'Upscale tab (custom target)');
+      await page.getByRole('button', { name: /^Upscale$/ }).click();
+      await expect(page.getByTestId('upscale-review')).toBeVisible();
+      await page.waitForTimeout(300);
+      await audit(page, 'Upscale result review');
+      await page.getByTestId('upscale-review').getByRole('button', { name: 'Keep' }).click();
+      await expect(page.getByText('Upscaled version kept')).toBeVisible();
+      await audit(page, 'Upscale tab (kept version)');
+    });
+
+    test('Upscale tab with several images, AI choice and the batch dialog', async ({ page }) => {
+      await start(page, theme);
+      await openEditor(page, 2);
+      await page.getByRole('tab', { name: 'Upscale' }).click();
+      await expect(page.getByRole('button', { name: 'Upscale all 2 images' })).toBeVisible();
+      await expect(page.getByTestId('upscale-estimate')).toContainText('Output');
+      await audit(page, 'Upscale tab (several images)');
+      await page.getByRole('radio', { name: /AI \(Real-ESRGAN\)/ }).click();
+      await audit(page, 'Upscale tab (AI chosen, model needed)');
+      await page.getByRole('radio', { name: /Standard \(no AI\)/ }).click();
+      await expect(page.getByTestId('upscale-estimate')).toContainText('Output');
+      await page.getByRole('checkbox', { name: 'Reduce artefacts' }).click();
+      await page.getByRole('button', { name: 'Upscale all 2 images' }).click();
+      await expect(page.getByRole('dialog', { name: 'Upscaling images' })).toBeVisible();
+      await page.waitForTimeout(400);
+      await audit(page, 'Batch upscale dialog');
+    });
+
+    test('Shadow tab: presets, reflection, guides, apply to all, export options', async ({
+      page,
+    }) => {
+      await start(page, theme);
+      await openEditor(page, 2);
+      await page.getByRole('tab', { name: 'Shadow' }).click();
+      await page.getByRole('button', { name: 'Remove BG' }).first().click();
+      await page.waitForTimeout(300);
+      await page.getByRole('checkbox', { name: 'Enable' }).click();
+      await page
+        .getByRole('group', { name: 'Preset' })
+        .getByRole('button', { name: 'Soft studio' })
+        .click();
+      await page.waitForTimeout(300);
+      // The ground line and light handles sit on the canvas.
+      await expect(page.getByRole('slider', { name: 'Light direction' })).toBeVisible();
+      await audit(page, 'Shadow tab (Soft studio preset, handles visible)');
+      await page.getByRole('button', { name: 'Save as preset' }).click();
+      await audit(page, 'Shadow tab (naming a preset)');
+      await page.keyboard.press('Escape');
+      await page.getByRole('checkbox', { name: /Shadow only/ }).click();
+      await page.waitForTimeout(200);
+      await audit(page, 'Shadow only view');
+      await page.getByRole('checkbox', { name: /Shadow only/ }).click();
+      await page.getByRole('button', { name: 'Export PNG', exact: true }).click();
+      await expect(page.getByRole('checkbox', { name: 'Include shadow' })).toBeVisible();
+      await audit(page, 'Export dialog with shadow options');
+    });
+
+    test('Model hub: first-run offer, Models page and install banner', async ({ page }) => {
+      await start(page, theme, { onboarding: true, hub: { stepMs: 400 } });
+      await expect(page.getByRole('dialog', { name: 'Add the recommended models?' })).toBeVisible();
+      await audit(page, 'First-run model offer');
+      await page.getByRole('button', { name: /Install recommended/ }).click();
+
+      await page.getByRole('button', { name: 'Settings' }).first().click();
+      await page.getByRole('tab', { name: 'Models' }).click();
+      await expect(page.getByTestId('status-text-detector')).toContainText(/Downloading|Waiting/);
+      await audit(page, 'Models page (downloading)');
+      await page
+        .getByRole('button', { name: /Details/ })
+        .first()
+        .click();
+      await audit(page, 'Models page (details open)');
+
+      await page.getByRole('tab', { name: 'Models' }).click();
+      await page.getByRole('button', { name: 'Advanced' }).click();
+      await audit(page, 'Models page (advanced open)');
+
+      await page.getByRole('tab', { name: 'Background removal' }).click();
+      await expect(page.getByTestId('model-install-banner')).toBeVisible();
+      await audit(page, 'Install banner');
+      await page
+        .getByTestId('model-install-banner')
+        .getByRole('button', { name: 'Install now' })
+        .click();
+      await expect(
+        page.getByTestId('model-install-banner').getByRole('button', { name: 'Pause' }),
+      ).toBeVisible();
+      await audit(page, 'Install banner (downloading)');
     });
 
     test('Recovery dialog and toasts', async ({ page }) => {

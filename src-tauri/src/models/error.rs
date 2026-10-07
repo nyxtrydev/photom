@@ -23,6 +23,14 @@ pub enum AppError {
     ProjectCorrupt(String),
     #[error("Export failed: {0}")]
     ExportFailed(String),
+    #[error("Network error: {0}")]
+    Network(String),
+    #[error("Not enough disk space: {0}")]
+    DiskFull(String),
+    #[error("Checksum mismatch: {0}")]
+    HashMismatch(String),
+    #[error("Unverified file: {0}")]
+    Unverified(String),
     #[error("Cancelled")]
     Cancelled,
     #[error("Permission denied: {0}")]
@@ -46,6 +54,10 @@ impl AppError {
             Self::OutOfMemory(_) => "OutOfMemory",
             Self::ProjectCorrupt(_) => "ProjectCorrupt",
             Self::ExportFailed(_) => "ExportFailed",
+            Self::Network(_) => "Network",
+            Self::DiskFull(_) => "DiskFull",
+            Self::HashMismatch(_) => "HashMismatch",
+            Self::Unverified(_) => "Unverified",
             Self::Cancelled => "Cancelled",
             Self::Permission(_) => "Permission",
             Self::InvalidInput(_) => "InvalidInput",
@@ -64,6 +76,10 @@ impl AppError {
             | Self::OutOfMemory(d)
             | Self::ProjectCorrupt(d)
             | Self::ExportFailed(d)
+            | Self::Network(d)
+            | Self::DiskFull(d)
+            | Self::HashMismatch(d)
+            | Self::Unverified(d)
             | Self::Permission(d)
             | Self::InvalidInput(d)
             | Self::Internal(d) => Some(d.as_str()),

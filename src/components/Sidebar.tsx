@@ -3,12 +3,14 @@ import {
   Home,
   Info,
   Layers,
+  ZoomIn,
   Settings,
   SlidersHorizontal,
   SquareDashed,
   type LucideIcon,
 } from 'lucide-react';
 import { strings } from '@/i18n/strings';
+import { useEditorStore } from '@/stores/editorStore';
 import { useUiStore, type Screen } from '@/stores/uiStore';
 
 const items: { screen: Screen; label: string; icon: LucideIcon }[] = [
@@ -26,6 +28,8 @@ export function Sidebar() {
   const screen = useUiStore((s) => s.screen);
   const setScreen = useUiStore((s) => s.setScreen);
   const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
+  const propsTab = useEditorStore((s) => s.propsTab);
+  const setPropsTab = useEditorStore((s) => s.setPropsTab);
 
   return (
     <nav
@@ -53,6 +57,25 @@ export function Sidebar() {
             </li>
           );
         })}
+        <li>
+          {/* Opens the editor on the Upscale tab. */}
+          <button
+            type="button"
+            aria-current={screen === 'edit' && propsTab === 'upscale' ? 'page' : undefined}
+            onClick={() => {
+              setPropsTab('upscale');
+              setScreen('edit');
+            }}
+            className={`${base} ${
+              screen === 'edit' && propsTab === 'upscale'
+                ? 'bg-primary font-medium text-primary-contrast shadow-card'
+                : 'text-fg hover:bg-muted'
+            }`}
+          >
+            <ZoomIn size={20} />
+            {strings.nav.upscaler}
+          </button>
+        </li>
       </ul>
 
       <div className="mt-auto flex flex-col gap-1 border-t border-border pt-4">

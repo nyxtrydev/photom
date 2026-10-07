@@ -66,6 +66,8 @@ function show(snap: Partial<JobSnapshot> & { items: JobItem[] }, request = true)
               compression: 6,
               filenameTemplate: 'x',
               folder: '/o',
+              includeShadow: true,
+              shadowLayer: false,
             },
           },
         }

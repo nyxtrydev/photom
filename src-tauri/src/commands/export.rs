@@ -12,13 +12,14 @@ use crate::models::error::AppError;
 use crate::services::exporter::{self, ExportOptions, ItemRequest, ItemState};
 use crate::services::history::{HistoryItem, HistoryKind};
 use crate::services::settings::Settings;
+use crate::services::upscale;
 use crate::state::AppState;
 
 const MAX_ITEMS: usize = 5000;
 
 /// Forwards job events to the frontend: `job:progress`, `job:item-complete`, `job:error`.
-struct TauriEvents {
-    app: AppHandle,
+pub(super) struct TauriEvents {
+    pub(super) app: AppHandle,
 }
 
 fn status_name(s: JobStatus) -> &'static str {
@@ -66,7 +67,7 @@ pub struct ExportItemRequest {
     pub state: ItemState,
 }
 
-fn validate_items(items: &[ExportItemRequest]) -> Result<(), AppError> {
+pub(super) fn validate_items(items: &[ExportItemRequest]) -> Result<(), AppError> {
     if items.is_empty() {
         return Err(AppError::InvalidInput("Nothing to export.".into()));
     }
@@ -126,9 +127,11 @@ pub fn export_png(
                 .find(|i| i.id == id)
                 .ok_or_else(|| AppError::Internal("item vanished".into()))?;
             let rec = st2.images.get(id)?;
+            // A kept upscale replaces the picture the pipeline works on.
+            let (work, work_state) = upscale::with_kept(&rec, st2.images.upscaled(id)?, &req.state);
             let (done, img) = exporter::export_item(&ItemRequest {
-                rec: &rec,
-                state: &req.state,
+                rec: &work,
+                state: &work_state,
                 options: &options,
                 index: index + 1,
                 total,
@@ -218,7 +221,9 @@ pub async fn copy_to_clipboard(
     let st = state.inner().clone();
     let img = tokio::task::spawn_blocking(move || {
         let rec = st.images.get(&item.id)?;
-        exporter::render_item(&rec, &item.state, &options, st.pixel_limit())
+        let (work, work_state) =
+            upscale::with_kept(&rec, st.images.upscaled(&item.id)?, &item.state);
+        exporter::render_item(&work, &work_state, &options, st.pixel_limit()).map(|r| r.image)
     })
     .await
     .map_err(|e| AppError::Internal(e.to_string()))??;

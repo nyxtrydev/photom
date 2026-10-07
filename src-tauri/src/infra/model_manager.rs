@@ -141,6 +141,14 @@ impl ModelManager {
         })
     }
 
+    /// A file that ships with the app (or sits in the models folder), by name.
+    pub fn locate_file(&self, name: &str) -> Option<PathBuf> {
+        self.search_dirs
+            .iter()
+            .map(|d| d.join(name))
+            .find(|p| p.is_file())
+    }
+
     pub fn require(&self, kind: ModelKind) -> AppResult<PathBuf> {
         self.locate(kind).ok_or_else(|| {
             AppError::ModelMissing(format!("{} not found", spec(kind).primary().name))
